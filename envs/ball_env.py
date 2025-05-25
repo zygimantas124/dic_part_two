@@ -13,8 +13,14 @@ class WhiteBallEnv(gym.Env):
         self.radius = 30
         self.goal_radius = 15
         self.hole_radius = 20
+        self.step_size = 5.0  # Constant movement per step
 
-        self.action_space = spaces.Box(low=-5, high=5, shape=(2,), dtype=np.float32)
+        # Action space: only the angle (in degrees)
+        self.action_space = spaces.Box(
+            low=0.0, high=360.0, shape=(1,), dtype=np.float32
+        )
+
+        # Observation space: x, y, angle
         self.observation_space = spaces.Box(
             low=np.array([0, 0, 0], dtype=np.float32),
             high=np.array([self.width, self.height, 360], dtype=np.float32),
@@ -47,19 +53,23 @@ class WhiteBallEnv(gym.Env):
         return np.append(self.state, self.angle), {}
 
     def step(self, action):
-        action = np.clip(action, self.action_space.low, self.action_space.high)
+        angle = action[0] % 360  # Ensure angle is within [0, 360)
+        self.angle = angle
 
-        if np.linalg.norm(action) > 1e-6:
-            self.angle = (np.degrees(np.arctan2(action[1], action[0])) + 360) % 360
+        # Convert angle to movement vector
+        rad = np.radians(angle)
+        dx = self.step_size * np.cos(rad)
+        dy = self.step_size * np.sin(rad)
 
+        movement = np.array([dx, dy])
         self.state = np.clip(
-            self.state + action,
+            self.state + movement,
             self.observation_space.low[:2],
             self.observation_space.high[:2],
         )
 
         done = False
-        reward = -0.01
+        reward = -0.01  # Small penalty to encourage faster solutions
 
         if np.linalg.norm(self.state - self.goal_pos) < self.goal_radius:
             reward = 1.0
@@ -137,14 +147,15 @@ class WhiteBallEnv(gym.Env):
             self.window = None
 
 
-# Run the environment
-env = WhiteBallEnv(render_mode="human")
-obs, _ = env.reset()
+# Run the environment manually with random angle actions
+if __name__ == "__main__":
+    env = WhiteBallEnv(render_mode="human")
+    obs, _ = env.reset()
 
-done = False
-while not done:
-    action = np.random.uniform(-5, 5, size=(2,))
-    obs, reward, done, _, _ = env.step(action)
-    env.render()
+    done = False
+    while not done:
+        action = np.random.uniform(0, 360, size=(1,))
+        obs, reward, done, _, _ = env.step(action)
+        env.render()
 
-env.close()
+    env.close()
