@@ -11,22 +11,22 @@ def parse_args(argv=None):
     p = ArgumentParser(description="Deep Q-Learning Training Script")
     # Environment and Action Space
     p.add_argument("--env_render_mode", type=str, default=None, help="Render mode for the environment (e.g., 'human').")
-    p.add_argument("--n_actions", type=int, default=4, help="Number of discrete actions for the agent.")
+    p.add_argument("--n_actions", type=int, default=8, help="Number of discrete actions for the agent.")
     
     # DQN Hyperparameters
     p.add_argument("--gamma", type=float, default=0.99, help="Discount factor for future rewards.")
     p.add_argument("--epsilon_start", type=float, default=1.0, help="Initial exploration rate.")
-    p.add_argument("--epsilon_min", type=float, default=0.1, help="Minimal exploration rate.")
-    p.add_argument("--epsilon_decay", type=float, default=0.9999, help="Epsilon decay rate per episode/step.")
+    p.add_argument("--epsilon_min", type=float, default=0.01, help="Minimal exploration rate.")
+    p.add_argument("--epsilon_decay", type=float, default=0.99995, help="Epsilon decay rate per episode.")
     p.add_argument("--alpha", type=float, default=1e-4, help="Learning rate for the Adam optimizer.")
     p.add_argument("--batch_size", type=int, default=64, help="Batch size for DQN learning.")
-    p.add_argument("--buffer_size", type=int, default=int(1e5), help="Size of the replay buffer.")
-    p.add_argument("--min_replay_size", type=int, default=int(1e3), help="Minimum replay buffer size before training.")
-    p.add_argument("--target_update_freq", type=int, default=int(1e3), 
+    p.add_argument("--buffer_size", type=int, default=int(4e4), help="Size of the replay buffer.")
+    p.add_argument("--min_replay_size", type=int, default=int(2e4), help="Minimum replay buffer size before training.")
+    p.add_argument("--target_update_freq", type=int, default=int(5e3), 
                         help="Frequency (in learning steps) to update the target network.")
     
     # Training Control
-    p.add_argument("--max_frames", type=int, default=int(5e4), help="Maximum number of frames to train for.")
+    p.add_argument("--max_frames", type=int, default=int(15e4), help="Maximum number of frames to train for.")
     p.add_argument("--max_episode_steps", type=int, default=1000, help="Maximum steps per episode.")
     p.add_argument("--log_interval", type=int, default=10, help="Interval (in episodes) for printing logs.")
     p.add_argument("--save_model_path", type=str, default="saved_Qnets/dqn_ball_env_model.pth", help="Path to save the trained model.")
@@ -51,7 +51,7 @@ def train(args):
 
     # Initialize environment
     render_mode = args.env_render_mode if args.env_render_mode in [None, "human", "rgb_array"] else None
-    env = WhiteBallEnv(render_mode=render_mode)
+    env = WhiteBallEnv(n_angles=args.n_actions, render_mode=render_mode)
     obs_dim = env.observation_space.shape[0]
     
     # Determine device

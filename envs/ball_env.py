@@ -7,18 +7,18 @@ import pygame
 class WhiteBallEnv(gym.Env):
     metadata = {"render_modes": ["human"], "render_fps": 100}
 
-    def __init__(self, render_mode=None, width=500, height=500):
+    def __init__(self, n_angles: int, render_mode=None, width=150, height=150):
         self.width = width
         self.height = height
-        self.radius = 30
-        self.goal_radius = 15
-        self.hole_radius = 20
+        self.radius = 20
+        self.subgoal_radius = 5
+        self.goal_radius = 10
+        self.hole_radius = 10
         self.step_size = 5.0  # Constant movement per step
 
-        # Action space: only the angle (in degrees)
-        self.action_space = spaces.Box(
-            low=0.0, high=360.0, shape=(1,), dtype=np.float32
-        )
+        # Discrete action space: only the angle (in degrees)
+        self.n_angles = n_angles
+        self.action_space = spaces.Discrete(self.n_angles)
 
         # Observation space: x, y, angle
         self.observation_space = spaces.Box(
@@ -26,11 +26,13 @@ class WhiteBallEnv(gym.Env):
             high=np.array([self.width, self.height, 360], dtype=np.float32),
         )
 
-        self.start_pos = np.array([50.0, 50.0])
-        self.goal_pos = np.array([450.0, 450.0])
-        self.holes = [np.array([200.0, 200.0]), np.array([300.0, 100.0])]
+        self.start_pos = np.array([25.0, 25.0])
+        self.subgoal1_pos = np.array([40.0, 90.0])
+        self.subgoal2_pos = np.array([80.0, 115.0])
+        self.goal_pos = np.array([130.0, 130.0])
+        self.holes = [np.array([80.0, 80.0]), np.array([120.0, 30.0])]
 
-        self.angle = 0.0
+        self.angle = 0.0  # Store angle of last action in degrees
         self.state = None
         self.render_mode = render_mode
         self.window = None
@@ -41,8 +43,14 @@ class WhiteBallEnv(gym.Env):
         self.target_image = None
         self.background_image = None
 
+        # To track visitation
+        self.grid_resolution = 2  # grid cell size in pixels
+        self.visit_counts = np.zeros((self.width // self.grid_resolution,
+                              self.height // self.grid_resolution), dtype=np.int32)
+
         self.step_count = 0
         self.total_reward = 0.0
+        self.cumulative_obstacle_multiplier = 1.0
 
     def reset(self, seed=0, options=None):
         super().reset(seed=seed)
@@ -53,32 +61,56 @@ class WhiteBallEnv(gym.Env):
         return np.append(self.state, self.angle), {}
 
     def step(self, action):
-        angle = action[0] % 360  # Ensure angle is within [0, 360)
-        self.angle = angle
+        self.angle = action
+        original_pos = self.state.copy()  # Store position before attempting to move
 
         # Convert angle to movement vector
-        rad = np.radians(angle)
+        rad = np.radians(self.angle)
         dx = self.step_size * np.cos(rad)
         dy = self.step_size * np.sin(rad)
-
         movement = np.array([dx, dy])
-        self.state = np.clip(
-            self.state + movement,
+
+        # Create "potential" move first to check against obstacles
+        potential_next_state = original_pos + movement
+        potential_next_state_clipped = np.clip(
+            potential_next_state,
             self.observation_space.low[:2],
-            self.observation_space.high[:2],
-        )
+            self.observation_space.high[:2]
+        )[:, 0]
 
         done = False
-        reward = -0.01  # Small penalty to encourage faster solutions
 
-        if np.linalg.norm(self.state - self.goal_pos) < self.goal_radius:
-            reward = 1.0
-            done = True
-        elif any(
-            np.linalg.norm(self.state - hole) < self.hole_radius for hole in self.holes
-        ):
-            reward = -1.0
-            done = True
+        # Determine whether agent hit an obstacle
+        hit_a_hole = False
+        for hole_center in self.holes:
+            if np.linalg.norm(potential_next_state_clipped - hole_center) < self.hole_radius:
+                hit_a_hole = True
+                break
+        
+        # Reward agent based on action
+        if hit_a_hole:
+            self.cumulative_obstacle_multiplier = 1.0  # Reset hole multiplier
+            reward = -20.0
+
+        else:
+            self.cumulative_obstacle_multiplier *= 0.99  # Decrease stepsize penalty when not hitting hole
+            reward = min(-1  * self.cumulative_obstacle_multiplier, -0.01)  # Ensure stepsize penalty remains
+
+            # Visited-area penalty
+            grid_x, grid_y = self._get_grid_index(self.state)
+            self.visit_counts[grid_x, grid_y] += 1  # Track visits in specified cell
+            # First time visit rewarded, second time visit nullified, from then on penalised
+            visit_penalty = -0.5 * (self.visit_counts[grid_x, grid_y] - 2)
+            reward += visit_penalty
+
+            self.state = potential_next_state_clipped
+            if np.linalg.norm(self.state - self.subgoal1_pos) < self.subgoal_radius:
+                reward = 5000.0
+            if np.linalg.norm(self.state - self.subgoal2_pos) < self.subgoal_radius:
+                reward = 5000.0
+            if np.linalg.norm(self.state - self.goal_pos) < self.goal_radius:
+                reward = 100000.0
+                done = True
 
         self.step_count += 1
         self.total_reward += reward
@@ -110,6 +142,12 @@ class WhiteBallEnv(gym.Env):
                 self.target_image, (2 * self.goal_radius, 2 * self.goal_radius)
             )
 
+            self.subgoal_image1 = pygame.image.load("envs/sprites/dollar.png")
+            self.subgoal_image1 = pygame.transform.scale(
+                self.subgoal_image1, (2 * self.goal_radius, 2 * self.goal_radius)
+            )
+            self.subgoal_image2 = self.subgoal_image1.copy()
+
             pygame.font.init()
             self.font = pygame.font.SysFont("Arial", 20)
 
@@ -117,7 +155,11 @@ class WhiteBallEnv(gym.Env):
 
         # Draw target
         target_pos = self.goal_pos.astype(int) - self.goal_radius
+        subgoal1_pos = self.subgoal1_pos.astype(int) - self.subgoal_radius
+        subgoal2_pos = self.subgoal2_pos.astype(int) - self.subgoal_radius
         self.window.blit(self.target_image, target_pos)
+        self.window.blit(self.subgoal_image1, subgoal1_pos)
+        self.window.blit(self.subgoal_image2, subgoal2_pos)
 
         # Draw holes
         for hole in self.holes:
@@ -145,6 +187,10 @@ class WhiteBallEnv(gym.Env):
         if self.window:
             pygame.quit()
             self.window = None
+    
+    def _get_grid_index(self, pos):
+        return (int(pos[0]) // self.grid_resolution,
+                int(pos[1]) // self.grid_resolution)
 
 
 # Run the environment manually with random angle actions

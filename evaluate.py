@@ -25,9 +25,9 @@ def parse_eval_args(argv=None):
     p.add_argument("--render_mode", type=str, default=None,
                        choices=[None, "human", "rgb_array"],
                        help="Render mode for the environment (e.g., 'human', None).")
-    p.add_argument("--n_actions", type=int, default=4,
+    p.add_argument("--n_actions", type=int, default=8,
                        help="Number of discrete actions the agent was trained with.")
-    p.add_argument("--eval_epsilon", type=float, default=0.01,
+    p.add_argument("--eval_epsilon", type=float, default=0.0,
                        help="Epsilon for exploration during evaluation (e.g., 0.01 for near-greedy, 0 for purely greedy).")
     p.add_argument("--max_episode_steps", type=int, default=500,
                        help="Maximum steps per evaluation episode.")
@@ -42,7 +42,7 @@ def evaluate_agent(args):
     # Initialize environment
     render_mode = args.render_mode
     try:
-        env = WhiteBallEnv(render_mode=render_mode)
+        env = WhiteBallEnv(n_angles=args.n_actions, render_mode=render_mode)
     except Exception as e:
         print(f"Error initializing WhiteBallEnv: {e}")
         return

@@ -21,6 +21,20 @@ class QNetwork(nn.Module):
     def forward(self, x):
         return self.net(x)
 
+class LargeQNetwork(nn.Module):
+    def __init__(self, input_dim, output_dim):
+        super().__init__()
+        # 'Simple' NN to start with
+        self.net = nn.Sequential(
+            nn.Linear(input_dim, 256), nn.LayerNorm(256), nn.ReLU(),
+            nn.Linear(256, 256), nn.LayerNorm(256), nn.ReLU(),
+            nn.Linear(256, 128), nn.LayerNorm(128), nn.ReLU(),
+            nn.Linear(128, output_dim)
+        )
+
+    def forward(self, x):
+        return self.net(x)
+
 class ReplayBuffer:
     """
     Replay buffer to store experiences for DQN training.
@@ -112,8 +126,8 @@ class DQNAgent:
         print(f"Using device: {self.device}")
 
         # Initialize Q-Network and Target Q-Network
-        self.q_net = QNetwork(obs_dim, n_actions).to(self.device)
-        self.target_q_net = QNetwork(obs_dim, n_actions).to(self.device)
+        self.q_net = LargeQNetwork(obs_dim, n_actions).to(self.device)
+        self.target_q_net = LargeQNetwork(obs_dim, n_actions).to(self.device)
         self.target_q_net.load_state_dict(self.q_net.state_dict()) # Initialize target with Q-net weights
         self.target_q_net.eval() # Target network is not trained directly
 
@@ -210,7 +224,7 @@ class DQNAgent:
         """
         Update the target Q-Network by copying the weights from the main Q-Network.
         """
-        print(f"Updating target network at step {self.learn_step_counter}")
+        print(f"Updating target network at step {self.learn_step_counter + self.min_replay_size}")
         self.target_q_net.load_state_dict(self.q_net.state_dict())
 
     def decay_epsilon_multiplicative(self):
