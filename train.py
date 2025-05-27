@@ -52,6 +52,7 @@ def train(args):
     # Initialize environment
     render_mode = args.env_render_mode if args.env_render_mode in [None, "human", "rgb_array"] else None
     env = WhiteBallEnv(n_angles=args.n_actions, render_mode=render_mode)
+    #env = DeliveryRobotEnv(render_mode=render_mode)
     obs_dim = env.observation_space.shape[0]
     
     # Determine device
