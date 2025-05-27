@@ -28,8 +28,8 @@ class WhiteBallEnv(gym.Env):
         self.start_pos = np.array([100.0, 250.0])
         self.goal_pos = np.array([400.0, 280.0])
         self.holes = [
-            np.array([60.0, 150.0]), 
-            np.array([250.0, 250.0]), 
+            np.array([60.0, 150.0]),
+            np.array([250.0, 250.0]),
             np.array([120.0, 380.0]),
             np.array([350.0, 50.0]),
         ]
@@ -47,8 +47,9 @@ class WhiteBallEnv(gym.Env):
 
         # To track visitation
         self.grid_resolution = 2  # grid cell size in pixels
-        self.visit_counts = np.zeros((self.width // self.grid_resolution,
-                              self.height // self.grid_resolution), dtype=np.int32)
+        self.visit_counts = np.zeros(
+            (self.width // self.grid_resolution, self.height // self.grid_resolution), dtype=np.int32
+        )
 
         self.step_count = 0
         self.total_reward = 0.0
@@ -79,12 +80,8 @@ class WhiteBallEnv(gym.Env):
         # Create "potential" move first to check against obstacles
         potential_next_state = original_pos + movement
         potential_next_state_clipped = np.clip(
-            potential_next_state,
-            self.observation_space.low[:2],
-            self.observation_space.high[:2]
+            potential_next_state, self.observation_space.low[:2], self.observation_space.high[:2]
         )
-
-        done = False
 
         # Determine whether agent hit an obstacle
         hit_a_hole = False
@@ -94,7 +91,7 @@ class WhiteBallEnv(gym.Env):
             if agent_to_hole_dist < agent_to_hole_contact:
                 hit_a_hole = True
                 break
-        
+
         # Reward agent based on action
         if hit_a_hole:
             reward = -50.0
@@ -108,13 +105,13 @@ class WhiteBallEnv(gym.Env):
 
             # Visited-area penalty
             grid_x, grid_y = self._get_grid_index(self.state)
-            self.visit_counts[grid_x-1, grid_y-1] += 1  # Track visits in specified cell
+            self.visit_counts[grid_x - 1, grid_y - 1] += 1  # Track visits in specified cell
             # First time visit rewarded, second time visit nullified, from then on penalised
-            visit_penalty = -0.5 * (self.visit_counts[grid_x-1, grid_y-1] - 2)
+            visit_penalty = -0.5 * (self.visit_counts[grid_x - 1, grid_y - 1] - 2)
             reward += max(visit_penalty, -10)
 
             self.state = potential_next_state_clipped
-            if current_dist_to_goal < (self.goal_radius+self.radius):
+            if current_dist_to_goal < (self.goal_radius + self.radius):
                 reward = 1000.0
                 self.target_reached = True
                 done = True
@@ -135,19 +132,13 @@ class WhiteBallEnv(gym.Env):
             self.clock = pygame.time.Clock()
 
             self.background_image = pygame.image.load("envs/sprites/bg.jpg")
-            self.background_image = pygame.transform.scale(
-                self.background_image, (self.width, self.height)
-            )
+            self.background_image = pygame.transform.scale(self.background_image, (self.width, self.height))
 
             self.ball_image = pygame.image.load("envs/sprites/trump.png")
-            self.ball_image = pygame.transform.scale(
-                self.ball_image, (2 * self.radius, 2 * self.radius)
-            )
+            self.ball_image = pygame.transform.scale(self.ball_image, (2 * self.radius, 2 * self.radius))
 
             self.target_image = pygame.image.load("envs/sprites/dollar.png")
-            self.target_image = pygame.transform.scale(
-                self.target_image, (2 * self.goal_radius, 2 * self.goal_radius)
-            )
+            self.target_image = pygame.transform.scale(self.target_image, (2 * self.goal_radius, 2 * self.goal_radius))
 
             pygame.font.init()
             self.font = pygame.font.SysFont("Arial", 20)
@@ -160,9 +151,7 @@ class WhiteBallEnv(gym.Env):
 
         # Draw holes
         for hole in self.holes:
-            pygame.draw.circle(
-                self.window, (255, 0, 0), hole.astype(int), self.hole_radius
-            )
+            pygame.draw.circle(self.window, (255, 0, 0), hole.astype(int), self.hole_radius)
 
         # Rotate and draw the ball
         rotated_ball = pygame.transform.rotate(self.ball_image, -self.angle)
@@ -171,9 +160,7 @@ class WhiteBallEnv(gym.Env):
 
         # Draw text
         step_text = self.font.render(f"Steps: {self.step_count}", True, (255, 255, 255))
-        reward_text = self.font.render(
-            f"Reward: {self.total_reward:.2f}", True, (255, 255, 0)
-        )
+        reward_text = self.font.render(f"Reward: {self.total_reward:.2f}", True, (255, 255, 0))
         self.window.blit(step_text, (10, 10))
         self.window.blit(reward_text, (10, 40))
 
@@ -184,7 +171,6 @@ class WhiteBallEnv(gym.Env):
         if self.window:
             pygame.quit()
             self.window = None
-    
+
     def _get_grid_index(self, pos):
-        return (int(pos[0]) // self.grid_resolution,
-                int(pos[1]) // self.grid_resolution)
+        return (int(pos[0]) // self.grid_resolution, int(pos[1]) // self.grid_resolution)
