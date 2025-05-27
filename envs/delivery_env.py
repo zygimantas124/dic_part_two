@@ -13,8 +13,8 @@ class DeliveryRobotEnv(gym.Env):
         self.robot_radius = 8
         
         # Scale factors to map your diagram to screen coordinates
-        self.scale_x = width / 6  # Assuming 6 grid units wide
-        self.scale_y = height / 6  # Assuming 6 grid units tall
+        self.scale_x = width / 10  # Assuming 5 grid units wide
+        self.scale_y = height / 10  # Assuming 5 grid units tall
         
         def grid_to_pixel(grid_x, grid_y, grid_w=0, grid_h=0):
             """Convert grid coordinates to pixel coordinates"""
@@ -24,46 +24,52 @@ class DeliveryRobotEnv(gym.Env):
         # Walls based on your diagram
         self.walls = [
             # Outer perimeter
-            grid_to_pixel(0, 0, 6, 0.1),      # Top wall
-            grid_to_pixel(0, 0, 0.1, 6),      # Left wall  
-            grid_to_pixel(5.9, 0, 0.1, 6),    # Right wall
-            grid_to_pixel(0, 5.9, 6, 0.1),    # Bottom wall
+            grid_to_pixel(0, 0, 10, 0.1),      # Top wall
+            grid_to_pixel(0, 0, 0.1, 10),      # Left wall  
+            grid_to_pixel(9.9, 0, 0.1, 10),    # Right wall
+            grid_to_pixel(0, 9.9, 10, 0.1),    # Bottom wall
             
             # Horizontal interior walls
-            grid_to_pixel(0, 2, 1, 0.1),      # Bottom-left room top wall
-            grid_to_pixel(3, 2, 2, 0.1),      # Bottom-right room top wall
-            grid_to_pixel(3, 4, 2, 0.1),      # Middle horizontal wall
+            grid_to_pixel(0, 1, 1, 0.1),      # (posx, posy, width, height)
+            grid_to_pixel(2, 1, 2, 0.1),      
+            grid_to_pixel(5, 1, 5, 0.1),      
+            
+            grid_to_pixel(5, 6, 5, 0.1),
+            grid_to_pixel(0, 7, 4, 0.1),     
+            grid_to_pixel(5, 7, 5, 0.1),
             
             # Vertical interior walls
-            grid_to_pixel(2, 0, 0.1, 2),      # Left section divider (bottom part)
-            grid_to_pixel(2, 2.5, 0.1, 1.5),  # Left section divider (top part) - leaving door gap
-            grid_to_pixel(3, 2, 0.1, 2),      # Right section divider
-            grid_to_pixel(1, 4, 0.1, 2),      # Top-left room divider
-            grid_to_pixel(4, 4, 0.1, 2),      # Top-right room divider
-            
+            grid_to_pixel(4, 1 , 0.1, 3),
+            grid_to_pixel(4, 5, 0.1, 2),
+            grid_to_pixel(4, 8, 0.1, 2),
+
+            grid_to_pixel(5, 1, 0.1, 1),
+            grid_to_pixel(5, 3, 0.1, 3),
+            grid_to_pixel(5, 8, 0.1, 2),
+
             # Small interior walls for rooms
-            grid_to_pixel(0.5, 2, 0.8, 0.1),  # Small wall in carpet room
-            grid_to_pixel(0.5, 3.2, 0.8, 0.1), # Another small wall in carpet room
+           
         ]
         
         # Carpet area (marked 'C' in your diagram)
         self.carpets = [
-            grid_to_pixel(0.2, 2.2, 1.6, 1.6),  # Carpet room
+            grid_to_pixel(2.5, 2.5, 1, 3),  # Carpet room
         ]
         
         # Delivery tables (filled rectangles in your diagram)
         self.tables = [
-            grid_to_pixel(0.3, 4.3, 0.4, 0.4),   # Table in top-left room
-            grid_to_pixel(4.3, 4.3, 0.4, 0.4),   # Table in top-right room  
-            grid_to_pixel(2.3, 0.3, 0.4, 0.4),   # Table in bottom-right room
-            grid_to_pixel(4.8, 0.3, 0.4, 0.4),   # Another table in bottom-right
+            grid_to_pixel(0, 2, 1, 2),   # Table in top-left room
+            grid_to_pixel(1, 6, 2, 1),   # Another in top-left room  
+            grid_to_pixel(5, 4 , 1, 2),   # Table in top-right room
+            grid_to_pixel(9, 2, 1, 2),   # Another in top-right room
+            grid_to_pixel(6, 9, 3, 1),   # Table in bottom-left room
         ]
         
         # Circular obstacles (people - stick figures in your diagram)
         obstacle_positions = [
-            (2.5, 4.5),  # Person in top middle area (marked with stick figure)
-            (3.5, 1),    # Person in bottom-right area
-            (0.3, 0.5),  # Person in bottom-left (dot in diagram)
+            (7, 3.5),  # Person in top middle area (marked with stick figure)
+            (6, 8),    # Person in bottom-right area
+            (6, 2),  # Printer
         ]
         self.obstacles = [(grid_to_pixel(x, y)[0], grid_to_pixel(x, y)[1], 15) 
                          for x, y in obstacle_positions]
