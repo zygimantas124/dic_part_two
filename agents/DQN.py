@@ -9,29 +9,22 @@ class QNetwork(nn.Module):
     """
     Neural Network for approximating Q-values.
     """
-    def __init__(self, input_dim, output_dim):
+    def __init__(self, input_dim, output_dim, size="small"):
         super().__init__()
-        # 'Simple' NN to start with
-        self.net = nn.Sequential(
-            nn.Linear(input_dim, 128), nn.ReLU(),
-            nn.Linear(128, 128), nn.ReLU(),
-            nn.Linear(128, output_dim)
-        )
-
-    def forward(self, x):
-        return self.net(x)
-
-class LargeQNetwork(nn.Module):
-    def __init__(self, input_dim, output_dim):
-        super().__init__()
-        # 'Simple' NN to start with
-        self.net = nn.Sequential(
-            nn.Linear(input_dim, 256), nn.LayerNorm(256), nn.ReLU(),
-            nn.Linear(256, 256), nn.LayerNorm(256), nn.ReLU(),
-            nn.Linear(256, 128), nn.LayerNorm(128), nn.ReLU(),
-            nn.Linear(128, output_dim)
-        )
-
+        if size=="small":
+            self.net = nn.Sequential(
+                nn.Linear(input_dim, 128), nn.ReLU(),
+                nn.Linear(128, 128), nn.ReLU(),
+                nn.Linear(128, output_dim)
+            )
+        elif size=="large":
+            self.net = nn.Sequential(
+                nn.Linear(input_dim, 256), nn.LayerNorm(256), nn.ReLU(),
+                nn.Linear(256, 256), nn.LayerNorm(256), nn.ReLU(),
+                nn.Linear(256, 128), nn.LayerNorm(128), nn.ReLU(),
+                nn.Linear(128, output_dim)
+            )
+    
     def forward(self, x):
         return self.net(x)
 
@@ -125,9 +118,9 @@ class DQNAgent:
         self.device = device if device else torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"Using device: {self.device}")
 
-        # Initialize Q-Network and Target Q-Network
-        self.q_net = LargeQNetwork(obs_dim, n_actions).to(self.device)
-        self.target_q_net = LargeQNetwork(obs_dim, n_actions).to(self.device)
+        # Initialize Q-Network, Target Q-Network
+        self.q_net = QNetwork(obs_dim, n_actions).to(self.device)
+        self.target_q_net = QNetwork(obs_dim, n_actions).to(self.device)
         self.target_q_net.load_state_dict(self.q_net.state_dict()) # Initialize target with Q-net weights
         self.target_q_net.eval() # Target network is not trained directly
 
@@ -233,9 +226,10 @@ class DQNAgent:
         """
         self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay_rate)
 
-    def set_epsilon_for_eval(self):
-        """Sets epsilon to a very small value for evaluation purposes (almost greedy)."""
-        self.epsilon = 0.01 # Or self.epsilon_min, or 0
+    def set_epsilon_for_eval(self, eval_epsilon: float = 0.0):
+        """
+        Sets epsilon to (almost) purely greedy."""
+        self.epsilon = eval_epsilon
 
     def load_model(self, path):
         """Loads the Q-network weights from a file."""

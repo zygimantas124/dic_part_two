@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from argparse import ArgumentParser
 from envs.ball_env import WhiteBallEnv
-from agents.DQN import *
+from agents.DQN import DQNAgent
 
 def parse_args(argv=None):
     """
@@ -14,21 +14,21 @@ def parse_args(argv=None):
     p.add_argument("--n_actions", type=int, default=8, help="Number of discrete actions for the agent.")
     
     # DQN Hyperparameters
-    p.add_argument("--gamma", type=float, default=0.99, help="Discount factor for future rewards.")
+    p.add_argument("--gamma", type=float, default=0.999, help="Discount factor for future rewards.")
     p.add_argument("--epsilon_start", type=float, default=1.0, help="Initial exploration rate.")
     p.add_argument("--epsilon_min", type=float, default=0.01, help="Minimal exploration rate.")
-    p.add_argument("--epsilon_decay", type=float, default=0.99995, help="Epsilon decay rate per episode.")
+    p.add_argument("--epsilon_decay", type=float, default=0.99, help="Epsilon decay rate per episode.")
     p.add_argument("--alpha", type=float, default=1e-4, help="Learning rate for the Adam optimizer.")
-    p.add_argument("--batch_size", type=int, default=64, help="Batch size for DQN learning.")
+    p.add_argument("--batch_size", type=int, default=128, help="Batch size for DQN learning.")
     p.add_argument("--buffer_size", type=int, default=int(4e4), help="Size of the replay buffer.")
     p.add_argument("--min_replay_size", type=int, default=int(2e4), help="Minimum replay buffer size before training.")
-    p.add_argument("--target_update_freq", type=int, default=int(5e3), 
+    p.add_argument("--target_update_freq", type=int, default=int(1e4), 
                         help="Frequency (in learning steps) to update the target network.")
     
     # Training Control
-    p.add_argument("--max_frames", type=int, default=int(15e4), help="Maximum number of frames to train for.")
-    p.add_argument("--max_episode_steps", type=int, default=1000, help="Maximum steps per episode.")
-    p.add_argument("--log_interval", type=int, default=10, help="Interval (in episodes) for printing logs.")
+    p.add_argument("--max_episodes", type=int, default=500, help="Maximum number of episodes to train for.")
+    p.add_argument("--max_episode_steps", type=int, default=2e3, help="Maximum steps per episode.")
+    p.add_argument("--log_interval", type=int, default=5, help="Interval (in episodes) for printing logs.")
     p.add_argument("--save_model_path", type=str, default="saved_Qnets/dqn_ball_env_model.pth", help="Path to save the trained model.")
     p.add_argument("--load_model_path", type=str, default=None, help="Path to load a pre-trained model.")
 
@@ -86,19 +86,19 @@ def train(args):
 
     obs, _ = env.reset()
     
-    total_frames = 0
+    total_steps = 0
     episode_count = 0
     all_episode_rewards = []
 
-    print(f"Starting training for {args.max_frames} frames...")
+    print(f"Starting training for {args.max_episodes} episodes...")
 
-    while total_frames < args.max_frames:
+    while episode_count < args.max_episodes:
         episode_reward = 0.0
         episode_steps = 0
         done = False
         obs, _ = env.reset()  # Reset environment at the start of each episode
 
-        while not done and episode_steps < args.max_episode_steps and total_frames < args.max_frames :
+        while not done and episode_steps < args.max_episode_steps:
             if args.env_render_mode == "human":
                 env.render()
 
@@ -117,13 +117,12 @@ def train(args):
             
             obs = next_obs
             episode_reward += reward
-            total_frames += 1
+            total_steps += 1
             episode_steps += 1
 
             # Train the agent
             if agent._can_learn():
-                loss = agent.learn() # This also handles target network updates internally
-                agent.decay_epsilon_multiplicative()
+                agent.learn() # This also handles target network updates internally
             
             if done:
                 break
@@ -132,17 +131,17 @@ def train(args):
         episode_count += 1
         all_episode_rewards.append(episode_reward)
 
-        # Decay epsilon (e.g., per episode) - using multiplicative decay as an example
-        agent.decay_epsilon_multiplicative() # Call this for episode-wise decay
+        # Decay epsilon
+        agent.decay_epsilon_multiplicative()
 
         if episode_count % args.log_interval == 0:
             avg_reward = np.mean(all_episode_rewards[-args.log_interval:])
-            print(f"Total Frames: {total_frames}/{args.max_frames} | Episode: {episode_count} | "
+            print(f"Total Steps: {total_steps} | Episode: {episode_count} | "
                   f"Avg Reward (last {args.log_interval} eps): {avg_reward:.2f} | "
                   f"Current Epsilon: {agent.epsilon:.3f}")
         
-        if total_frames >= args.max_frames:
-            print("Maximum frames reached. Training finished.")
+        if episode_count >= args.max_episodes:
+            print("Maximum episodes reached. Training finished.")
             break
             
     env.close()

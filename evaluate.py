@@ -27,7 +27,7 @@ def parse_eval_args(argv=None):
                        help="Render mode for the environment (e.g., 'human', None).")
     p.add_argument("--n_actions", type=int, default=8,
                        help="Number of discrete actions the agent was trained with.")
-    p.add_argument("--eval_epsilon", type=float, default=0.0,
+    p.add_argument("--eval_epsilon", type=float, default=0.05,
                        help="Epsilon for exploration during evaluation (e.g., 0.01 for near-greedy, 0 for purely greedy).")
     p.add_argument("--max_episode_steps", type=int, default=500,
                        help="Maximum steps per evaluation episode.")
