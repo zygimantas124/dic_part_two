@@ -92,7 +92,7 @@ class DeliveryRobotEnv(gym.Env):
         self.delivered_tables = set()
         
         # Action space: 8 directions
-        self.n_actions = 8
+        self.n_actions = 360
         self.action_space = spaces.Discrete(self.n_actions)
         
         # Observation space: robot position + angle + delivery status
