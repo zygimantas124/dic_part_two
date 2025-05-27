@@ -1,0 +1,208 @@
+import gymnasium as gym
+from gymnasium import spaces
+import numpy as np
+import pygame
+from typing import Optional
+
+
+class ModularDeliveryEnv(gym.Env):
+    metadata = {"render_modes": ["human"], "render_fps": 60}
+
+    def __init__(
+        self,
+        n_angles: int = 8,
+        width: int = 800,
+        height: int = 600,
+        robot_radius: int = 10,
+        robot_speed: float = 5.0,
+        include_walls: bool = True,
+        include_carpets: bool = True,
+        include_obstacles: bool = True,
+        render_mode: Optional[str] = None,
+    ):
+        super().__init__()
+        self.width = width
+        self.height = height
+        self.radius = robot_radius
+        self.speed = robot_speed
+        self.n_angles = n_angles
+        self.render_mode = render_mode
+
+        self.scale_x = width / 6
+        self.scale_y = height / 6
+
+        self._grid_to_pixel = lambda gx, gy, gw=0, gh=0: (
+            int(gx * self.scale_x),
+            int(gy * self.scale_y),
+            int(gw * self.scale_x),
+            int(gh * self.scale_y),
+        )
+
+        # Initialise environment components, tables are mandatory
+        self.tables = self._create_tables()
+        self.walls = self._create_walls() if include_walls else []
+        self.carpets = self._create_carpets() if include_carpets else []
+        self.obstacles = self._create_obstacles() if include_obstacles else []
+
+        # Initialise environment settings
+        self.start_pos = np.array(self._grid_to_pixel(0.5, 0.5)[:2], dtype=np.float32)
+        self.robot_pos = self.start_pos.copy()
+        self.angle = 0.0
+        self.delivered_tables = set()
+
+        self.action_space = spaces.Discrete(self.n_angles)
+
+        # X, Y, Angle, Delivery Status for each table
+        self.observation_space = spaces.Box(
+            low=np.array([0, 0, 0] + [0] * len(self.tables), dtype=np.float32),
+            high=np.array([width, height, 360] + [1] * len(self.tables), dtype=np.float32),
+        )
+
+        self.window, self.clock, self.font = None, None, None
+
+    def _create_walls(self):
+        g2p = self._grid_to_pixel
+        return [
+            g2p(0, 0, 6, 0.1),
+            g2p(0, 0, 0.1, 6),
+            g2p(5.9, 0, 0.1, 6),
+            g2p(0, 5.9, 6, 0.1),
+            g2p(0, 2, 1, 0.1),
+            g2p(3, 2, 2, 0.1),
+            g2p(3, 4, 2, 0.1),
+            g2p(2, 0, 0.1, 2),
+            g2p(2, 2.5, 0.1, 1.5),
+            g2p(3, 2, 0.1, 2),
+            g2p(1, 4, 0.1, 2),
+            g2p(4, 4, 0.1, 2),
+            g2p(0.5, 2, 0.8, 0.1),
+            g2p(0.5, 3.2, 0.8, 0.1),
+        ]
+
+    def _create_tables(self):
+        g2p = self._grid_to_pixel
+        return [
+            g2p(0.3, 4.3, 0.4, 0.4),
+            g2p(4.3, 4.3, 0.4, 0.4),
+            g2p(2.3, 0.3, 0.4, 0.4),
+            g2p(4.8, 0.3, 0.4, 0.4),
+        ]
+
+    def _create_carpets(self):
+        return [self._grid_to_pixel(0.2, 2.2, 1.6, 1.6)]
+
+    def _create_obstacles(self):
+        positions = [(2.5, 4.5), (3.5, 1), (0.3, 0.5)]
+        return [(self._grid_to_pixel(x, y)[0], self._grid_to_pixel(x, y)[1], 15) for x, y in positions]
+
+    def reset(self, seed=0, options=None):
+        super().reset(seed=seed)
+        self.robot_pos = self.start_pos.copy()
+        self.angle = 0.0
+        self.delivered_tables = set()
+        return self._get_obs(), {}
+
+    def _get_obs(self):
+        delivery_status = [1 if i in self.delivered_tables else 0 for i in range(len(self.tables))]
+        return np.array([*self.robot_pos, self.angle] + delivery_status, dtype=np.float32)
+
+    def step(self, action):
+        self.angle = (action * (360 / self.n_angles)) % 360
+        rad = np.radians(self.angle)
+        dx, dy = self.speed * np.cos(rad), self.speed * np.sin(rad)
+        new_pos = self.robot_pos + np.array([dx, dy])
+
+        new_pos = np.clip(
+            new_pos,
+            [self.radius, self.radius],
+            [self.width - self.radius, self.height - self.radius],
+        )
+        reward, done = -0.02, False
+
+        if not self._check_collision(new_pos):
+            self.robot_pos = new_pos
+
+            if self._on_carpet():
+                reward -= 0.2
+
+            reward += self._check_table_delivery()
+        else:
+            reward = -2.0
+
+        if len(self.delivered_tables) == len(self.tables):
+            reward += 200.0
+            done = True
+
+        return self._get_obs(), reward, done, False, {}
+
+    def _check_collision(self, pos):
+        x, y = pos
+        for wx, wy, ww, wh in self.walls:
+            if wx - self.radius <= x <= wx + ww + self.radius and wy - self.radius <= y <= wy + wh + self.radius:
+                return True
+        for ox, oy, r in self.obstacles:
+            if np.linalg.norm(pos - np.array([ox, oy])) < r + self.radius:
+                return True
+        return False
+
+    def _on_carpet(self):
+        x, y = self.robot_pos
+        for cx, cy, cw, ch in self.carpets:
+            if cx <= x <= cx + cw and cy <= y <= cy + ch:
+                return True
+        return False
+
+    def _check_table_delivery(self):
+        reward = 0
+        for i, (tx, ty, tw, th) in enumerate(self.tables):
+            if i not in self.delivered_tables:
+                center = np.array([tx + tw / 2, ty + th / 2])
+                if np.linalg.norm(self.robot_pos - center) < 30:
+                    self.delivered_tables.add(i)
+                    reward += 50
+        return reward
+
+    def render(self):
+        if self.render_mode != "human":
+            return
+        if self.window is None:
+            pygame.init()
+            self.window = pygame.display.set_mode((self.width, self.height))
+            self.clock = pygame.time.Clock()
+            pygame.font.init()
+            self.font = pygame.font.SysFont("Arial", 20)
+
+        self.window.fill((240, 240, 240))
+
+        for cx, cy, cw, ch in self.carpets:
+            pygame.draw.rect(self.window, (139, 69, 19), (cx, cy, cw, ch))
+
+        for wx, wy, ww, wh in self.walls:
+            pygame.draw.rect(self.window, (0, 0, 0), (wx, wy, ww, wh))
+
+        for i, (tx, ty, tw, th) in enumerate(self.tables):
+            color = (0, 200, 0) if i in self.delivered_tables else (255, 165, 0)
+            pygame.draw.rect(self.window, color, (tx, ty, tw, th))
+
+        for ox, oy, r in self.obstacles:
+            pygame.draw.circle(self.window, (255, 100, 100), (int(ox), int(oy)), r)
+
+        pygame.draw.circle(self.window, (0, 100, 255), self.robot_pos.astype(int), self.radius)
+        end = self.robot_pos + (self.radius + 5) * np.array(
+            [np.cos(np.radians(self.angle)), np.sin(np.radians(self.angle))]
+        )
+        pygame.draw.line(self.window, (0, 50, 150), self.robot_pos.astype(int), end.astype(int), 3)
+
+        info = self.font.render(
+            f"Delivered: {len(self.delivered_tables)}/{len(self.tables)}",
+            True,
+            (0, 0, 0),
+        )
+        self.window.blit(info, (10, 10))
+        pygame.display.flip()
+        self.clock.tick(self.metadata["render_fps"])
+
+    def close(self):
+        if self.window:
+            pygame.quit()
+            self.window = None
