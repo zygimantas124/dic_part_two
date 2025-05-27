@@ -7,14 +7,11 @@ def get_carpets():
 
 
 def get_people():
-    return [
-        (200, 100, 15),
-        (700, 100, 15),
-    ]
+    return [(650, 100, 15)]
 
 
 def get_furniture():
     return [
-        (200, 150, 20),
-        (700, 150, 20),
+        (150, 150, 20),
+        (650, 300, 20),
     ]

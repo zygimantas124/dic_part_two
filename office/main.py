@@ -12,7 +12,7 @@ from components.walls import get_walls
 class DeliveryRobotEnv(gym.Env):
     metadata = {"render_modes": ["human"], "render_fps": 60}
 
-    def __init__(self, render_mode=None):
+    def __init__(self, render_mode=None, show_walls=True, show_obstacles=True, show_carpets=True):
         self.width = 800
         self.height = 600
         self.robot_radius = 10
@@ -20,12 +20,16 @@ class DeliveryRobotEnv(gym.Env):
         self.angle = 0.0
         self.reward = 0.0
 
-        self.walls = get_walls()
-        self.tables = get_target_tables()
-        self.carpets = get_carpets()
-        self.obstacles = get_people() + get_furniture()
+        self.show_walls = show_walls
+        self.show_obstacles = show_obstacles
+        self.show_carpets = show_carpets
 
-        self.start_pos = np.array([100.0, 100.0], dtype=np.float32)
+        self.walls = get_walls() if show_walls else []
+        self.tables = get_target_tables()
+        self.carpets = get_carpets() if show_carpets else []
+        self.obstacles = (get_people() + get_furniture()) if show_obstacles else []
+
+        self.start_pos = np.array([100, 500])
         self.robot_pos = self.start_pos.copy()
         self.delivered_tables = set()
 
