@@ -198,10 +198,18 @@ class DeliveryRobotEnv(gym.Env):
         
         for i, (table_x, table_y, table_w, table_h) in enumerate(self.tables):
             if i not in self.delivered_tables:
-                table_center = np.array([table_x + table_w/2, table_y + table_h/2])
-                distance = np.linalg.norm(self.robot_pos - table_center)
+                # Check if robot circle overlaps with table rectangle
+                robot_x, robot_y = self.robot_pos
                 
-                if distance < 30:  # Delivery distance threshold
+                # Find closest point on table rectangle to robot center
+                closest_x = max(table_x, min(robot_x, table_x + table_w))
+                closest_y = max(table_y, min(robot_y, table_y + table_h))
+                
+                # Calculate distance from robot center to closest point on table
+                distance = np.linalg.norm(self.robot_pos - np.array([closest_x, closest_y]))
+                
+                # Check if robot circle touches the table rectangle
+                if distance <= self.robot_radius:
                     self.delivered_tables.add(i)
                     reward += 50  # Delivery reward
                     print(f"Delivered to table {i+1}!")
