@@ -1,4 +1,4 @@
-from envs.delivery_env import DeliveryRobotEnv
+from office.delivery_env import DeliveryRobotEnv
 import pygame
 import numpy as np
 
@@ -6,7 +6,13 @@ import numpy as np
 pygame.init()
 
 # Manual control of the delivery robot
-env = DeliveryRobotEnv(render_mode="human", robot_speed=10)
+
+env = DeliveryRobotEnv(
+    render_mode="human",
+    show_walls=True,  # Set to False to hide walls
+    show_obstacles=True,  # Set to False to hide obstacles
+    show_carpets=True,  # Set to False to hide carpets
+)
 obs, _ = env.reset()
 
 print("Manual Control:")
@@ -45,13 +51,13 @@ while running:
                 move_direction = -1
     # Update the angle
     if rotate_direction != 0:
-        env.robot_angle = (env.robot_angle + rotate_direction * 5) % 360
+        env.angle = (env.angle + rotate_direction * 5) % 360
 
     # Move forward or backward
     if move_direction != 0:
-        rad = np.radians(env.robot_angle)
-        dx = env.speed * move_direction * np.cos(rad)
-        dy = env.speed * move_direction * np.sin(rad)
+        rad = np.radians(env.angle)
+        dx = env.step_size * move_direction * np.cos(rad)
+        dy = env.step_size * move_direction * np.sin(rad)
         new_pos = env.robot_pos + np.array([dx, dy])
         
         # Clamp to screen boundaries
