@@ -68,6 +68,7 @@ class WhiteBallEnv(gym.Env):
         Take a step in the environment given the action (angle in degrees).
         Updates reward and potential doneness.
         """
+        done = False
         self.angle = action
         original_pos = self.state.copy()  # Store position before attempting to move
 
