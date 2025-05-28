@@ -17,7 +17,7 @@ class DeliveryRobotEnv(gym.Env):
         self.width = 800
         self.height = 600
         self.robot_radius = 10
-        self.step_size = 5.0
+        self.step_size = 10.0
         self.angle = 0.0
         self.reward = 0.0
 

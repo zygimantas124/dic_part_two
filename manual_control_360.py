@@ -18,15 +18,8 @@ obs, _ = env.reset()
 print("Manual Control:")
 print("Arrow Keys: Move robot")
 print("ESC: Exit")
-print("Action mapping:")
-print("0: Right (0°)")
-print("1: Down-Right (45°)")
-print("2: Down (90°)")
-print("3: Down-Left (135°)")
-print("4: Left (180°)")
-print("5: Up-Left (225°)")
-print("6: Up (270°)")
-print("7: Up-Right (315°)")
+print("D: Debug current position")
+print("R: Reset robot position")
 
 running = True
 clock = pygame.time.Clock()
@@ -49,6 +42,24 @@ while running:
                 move_direction = 1
             elif event.key == pygame.K_DOWN:
                 move_direction = -1
+            elif event.key == pygame.K_d:
+                # Debug current position
+                print(f"\n=== DEBUG ===")
+                print(f"Robot at: ({env.robot_pos[0]:.1f}, {env.robot_pos[1]:.1f})")
+                print(f"Angle: {env.angle:.1f}°")
+                print(f"Delivered tables: {env.delivered_tables}")
+                for i, (tx, ty, tw, th) in enumerate(env.tables):
+                    table_center = np.array([tx + tw/2, ty + th/2])
+                    distance = np.linalg.norm(env.robot_pos - table_center)
+                    status = "DELIVERED" if i in env.delivered_tables else "PENDING"
+                    print(f"Table {i}: distance={distance:.1f} [{status}]")
+                print("=============\n")
+            elif event.key == pygame.K_r:
+                # Reset robot
+                env.robot_pos = env.start_pos.copy()
+                env.angle = 0.0
+                print(f"Robot reset to {env.robot_pos}")
+
     # Update the angle
     if rotate_direction != 0:
         env.angle = (env.angle + rotate_direction * 5) % 360
@@ -67,6 +78,16 @@ while running:
         
         if not env._check_collision(new_pos):
             env.robot_pos = new_pos
+            
+            # *** Check for deliveries after movement ***
+            delivery_reward = env._check_table_delivery()
+            if delivery_reward > 0:
+                print(f"🎉 DELIVERY MADE! Reward: {delivery_reward}")
+                print(f"Total delivered: {len(env.delivered_tables)}/{len(env.tables)}")
+                
+                # Check if all tables delivered
+                if len(env.delivered_tables) == len(env.tables):
+                    print("🏆 ALL TABLES DELIVERED! MISSION COMPLETE! 🏆")
         else:
             print("Collision detected.")
 
