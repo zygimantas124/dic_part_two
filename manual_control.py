@@ -1,11 +1,16 @@
-from envs.delivery_env import DeliveryRobotEnv
+from office.delivery_env import DeliveryRobotEnv
 import pygame
 
 # Initialize pygame first
 pygame.init()
 
 # Manual control of the delivery robot
-env = DeliveryRobotEnv(render_mode="human", robot_speed=10)
+env = DeliveryRobotEnv(
+    render_mode="human",
+    show_walls=True,  # Set to False to hide walls
+    show_obstacles=True,  # Set to False to hide obstacles
+    show_carpets=True,  # Set to False to hide carpets
+)
 obs, _ = env.reset()
 
 print("Manual Control:")
