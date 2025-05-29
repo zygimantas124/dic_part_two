@@ -207,8 +207,10 @@ def render_environment(env):
     # ==============================================
     # UI TEXT
     # ==============================================
-    text = env.font.render(f"Delivered: {len(env.delivered_tables)}/{len(env.tables)}", True, RENDER_CONFIG['colors']['text'])
-    win.blit(text, (10, 10))
+    delivered_text = env.font.render(f"Delivered: {len(env.delivered_tables)}/{len(env.tables)}", True, RENDER_CONFIG['colors']['text'])
+    step_reward_text = env.font.render(f"Step: {env.step_count}    Reward: {env.total_reward}", True, RENDER_CONFIG['colors']['text'])
+    win.blit(step_reward_text, (10, 10))
+    win.blit(delivered_text, (10, 40))
     
     pygame.display.flip()
     env.clock.tick(env.metadata["render_fps"])

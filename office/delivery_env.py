@@ -35,7 +35,7 @@ class DeliveryRobotEnv(gym.Env):
         self.delivered_tables = set()
 
         self.action_space = spaces.Discrete(360)
-        self.observation_space = spaces.Box(
+        self.observation_space = spaces.Box(  #TODO: table delivery info used?
             low=np.array([0, 0, 0] + [0] * len(self.tables), dtype=np.float32),
             high=np.array([self.width, self.height, 360] + [1] * len(self.tables), dtype=np.float32),
             dtype=np.float32,
@@ -45,11 +45,15 @@ class DeliveryRobotEnv(gym.Env):
         self.window = None
         self.clock = None
         self.font = None
+        self.total_reward = 0.0
+        self.step_count = 0
 
     def reset(self, seed=0, options=None):
         super().reset(seed=seed)
         self.robot_pos = self.start_pos.copy()
         self.angle = 0.0
+        self.total_reward = 0.0
+        self.step_count = 0
         self.delivered_tables = set()
         return self._get_obs(), {}
 
@@ -59,7 +63,7 @@ class DeliveryRobotEnv(gym.Env):
         rad = np.radians(self.angle)
         dx = self.step_size * np.cos(rad)
         dy = self.step_size * np.sin(rad)
-        movement = np.array([dx, dy])
+        movement = np.array([dx, dy]).flatten()
 
         new_pos = self.robot_pos + movement
         new_pos = np.clip(
@@ -67,7 +71,7 @@ class DeliveryRobotEnv(gym.Env):
         )
 
         reward = -0.02  # Default step penalty
-
+        #TODO: clip rewards
         if not self._check_collision(new_pos):
             self.robot_pos = new_pos
 
@@ -82,10 +86,14 @@ class DeliveryRobotEnv(gym.Env):
         if done:
             reward += 200.0
 
+        self.total_reward += reward
+        self.step_count += 1
+
         return self._get_obs(), reward, done, False, {}
 
     def _get_obs(self):
         status = [1 if i in self.delivered_tables else 0 for i in range(len(self.tables))]
+        #TODO: Only first 3 elements required as Qnet input, check with train.py
         return np.array([self.robot_pos[0], self.robot_pos[1], self.angle] + status, dtype=np.float32)
 
     def _check_collision(self, pos):
@@ -123,6 +131,11 @@ class DeliveryRobotEnv(gym.Env):
     def render(self):
         if self.render_mode != "human":
             return
+        
+        # Prevents frame freezing
+        if pygame.get_init():
+            pygame.event.pump()
+
         if self.window is None:
             pygame.init()
             pygame.font.init()
@@ -134,4 +147,5 @@ class DeliveryRobotEnv(gym.Env):
     def close(self):
         if self.window:
             pygame.quit()
+            pygame.font.quit()
             self.window = None

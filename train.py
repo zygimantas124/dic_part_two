@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 from argparse import ArgumentParser
-from envs.ball_env import WhiteBallEnv
+from office.delivery_env import DeliveryRobotEnv
 from agents.DQN import DQNAgent
 
 def parse_args(argv=None):
@@ -19,17 +19,17 @@ def parse_args(argv=None):
     p.add_argument("--epsilon_min", type=float, default=0.01, help="Minimal exploration rate.")
     p.add_argument("--epsilon_decay", type=float, default=0.99, help="Epsilon decay rate per episode.")
     p.add_argument("--alpha", type=float, default=1e-4, help="Learning rate for the Adam optimizer.")
-    p.add_argument("--batch_size", type=int, default=128, help="Batch size for DQN learning.")
-    p.add_argument("--buffer_size", type=int, default=int(4e4), help="Size of the replay buffer.")
-    p.add_argument("--min_replay_size", type=int, default=int(2e4), help="Minimum replay buffer size before training.")
-    p.add_argument("--target_update_freq", type=int, default=int(1e4), 
+    p.add_argument("--batch_size", type=int, default=256, help="Batch size for DQN learning.")
+    p.add_argument("--buffer_size", type=int, default=int(1e5), help="Size of the replay buffer.")
+    p.add_argument("--min_replay_size", type=int, default=int(1e5), help="Minimum replay buffer size before training.")
+    p.add_argument("--target_update_freq", type=int, default=int(5e4), 
                         help="Frequency (in learning steps) to update the target network.")
     
     # Training Control
-    p.add_argument("--max_episodes", type=int, default=500, help="Maximum number of episodes to train for.")
-    p.add_argument("--max_episode_steps", type=int, default=2e3, help="Maximum steps per episode.")
+    p.add_argument("--max_episodes", type=int, default=200, help="Maximum number of episodes to train for.")
+    p.add_argument("--max_episode_steps", type=int, default=1e4, help="Maximum steps per episode.")
     p.add_argument("--log_interval", type=int, default=5, help="Interval (in episodes) for printing logs.")
-    p.add_argument("--save_model_path", type=str, default="saved_Qnets/dqn_ball_env_model.pth", help="Path to save the trained model.")
+    p.add_argument("--save_model_path", type=str, default="saved_Qnets/bare_delivery_env_model.pth", help="Path to save the trained model.")
     p.add_argument("--load_model_path", type=str, default=None, help="Path to load a pre-trained model.")
 
     return p.parse_args(argv)
@@ -44,16 +44,17 @@ def action_to_angle(action_idx, n_actions):
         np.ndarray: A numpy array containing the angle in degrees.
     """
     # Maps action_idx (0 to n_actions-1) to an angle (0 to 360 degrees)
-    return np.array([action_idx * (360.0 / n_actions)], dtype=np.float32)
+    return action_idx * (360.0 / n_actions)
 
 # Main training loop
 def train(args):
 
     # Initialize environment
     render_mode = args.env_render_mode if args.env_render_mode in [None, "human", "rgb_array"] else None
-    env = WhiteBallEnv(n_angles=args.n_actions, render_mode=render_mode)
-    #env = DeliveryRobotEnv(render_mode=render_mode)
-    obs_dim = env.observation_space.shape[0]
+    env = DeliveryRobotEnv(show_walls=False, show_carpets=False, show_obstacles=False, render_mode=render_mode)
+    
+    #obs_dim = env.observation_space.shape[0]
+    obs_dim = 3  # Hardcoded for now
     
     # Determine device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
