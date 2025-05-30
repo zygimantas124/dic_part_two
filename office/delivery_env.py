@@ -34,10 +34,21 @@ class DeliveryRobotEnv(gym.Env):
         self.robot_pos = self.start_pos.copy()
         self.delivered_tables = set()
 
-        self.action_space = spaces.Discrete(360)
-        self.observation_space = spaces.Box(  #TODO: table delivery info used?
-            low=np.array([0, 0, 0] + [0] * len(self.tables), dtype=np.float32),
-            high=np.array([self.width, self.height, 360] + [1] * len(self.tables), dtype=np.float32),
+        self.directions = {
+            0: np.array([0, -1]),  # Up
+            1: np.array([0, 1]),  # Down
+            2: np.array([-1, 0]),  # Left
+            3: np.array([1, 0]),  # Right
+            4: np.array([-1, -1]),  # Up-Left
+            5: np.array([1, -1]),  # Up-Right
+            6: np.array([-1, 1]),  # Down-Left
+            7: np.array([1, 1]),  # Down-Right
+        }
+        self.action_space = spaces.Discrete(len(self.directions))
+
+        self.observation_space = spaces.Box(
+            low=np.array([0, 0] + [0] * len(self.tables), dtype=np.float32),
+            high=np.array([self.width, self.height] + [1] * len(self.tables), dtype=np.float32),
             dtype=np.float32,
         )
 
@@ -59,11 +70,7 @@ class DeliveryRobotEnv(gym.Env):
 
     def step(self, action):
         self.angle = action
-
-        rad = np.radians(self.angle)
-        dx = self.step_size * np.cos(rad)
-        dy = self.step_size * np.sin(rad)
-        movement = np.array([dx, dy]).flatten()
+        movement = (self.directions[action] * self.step_size).flatten()
 
         new_pos = self.robot_pos + movement
         new_pos = np.clip(
@@ -71,7 +78,7 @@ class DeliveryRobotEnv(gym.Env):
         )
 
         reward = -0.02  # Default step penalty
-        #TODO: clip rewards
+        # TODO: clip rewards
         if not self._check_collision(new_pos):
             self.robot_pos = new_pos
 
@@ -93,8 +100,8 @@ class DeliveryRobotEnv(gym.Env):
 
     def _get_obs(self):
         status = [1 if i in self.delivered_tables else 0 for i in range(len(self.tables))]
-        #TODO: Only first 3 elements required as Qnet input, check with train.py
-        return np.array([self.robot_pos[0], self.robot_pos[1], self.angle] + status, dtype=np.float32)
+        # TODO: Only first 3 elements required as Qnet input, check with train.py
+        return np.array([self.robot_pos[0], self.robot_pos[1]] + status, dtype=np.float32)
 
     def _check_collision(self, pos):
         x, y = pos
@@ -131,7 +138,7 @@ class DeliveryRobotEnv(gym.Env):
     def render(self):
         if self.render_mode != "human":
             return
-        
+
         # Prevents frame freezing
         if pygame.get_init():
             pygame.event.pump()
