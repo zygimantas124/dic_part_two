@@ -3,6 +3,9 @@ import torch
 from argparse import ArgumentParser
 from office.delivery_env import DeliveryRobotEnv
 from agents.DQN import DQNAgent
+from tqdm import trange
+
+
 
 def parse_args(argv=None):
     """
@@ -53,8 +56,8 @@ def train(args):
     render_mode = args.env_render_mode if args.env_render_mode in [None, "human", "rgb_array"] else None
     env = DeliveryRobotEnv(show_walls=False, show_carpets=False, show_obstacles=False, render_mode=render_mode)
     
-    #obs_dim = env.observation_space.shape[0]
-    obs_dim = 3  # Hardcoded for now
+    obs_dim = env.observation_space.shape[0]
+    # obs_dim = 3  # Hardcoded for now
     
     # Determine device
     # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -95,7 +98,7 @@ def train(args):
 
     print(f"Starting training for {args.max_episodes} episodes...")
 
-    while episode_count < args.max_episodes:
+    for episode_count in trange(args.max_episodes, desc="Training Episodes"):
         episode_reward = 0.0
         episode_steps = 0
         done = False
@@ -108,11 +111,8 @@ def train(args):
             # Agent selects an action
             action_idx = agent.select_action(obs)
             
-            # Convert discrete action index to environment-specific action (angle)
-            angle_action = action_to_angle(action_idx, args.n_actions)
-            
             # Environment steps
-            next_obs, reward, terminated, truncated, _ = env.step(angle_action)
+            next_obs, reward, terminated, truncated, _ = env.step(action_idx)
             done = terminated or truncated # Episode ends if terminated or truncated
 
             # Store transition in agent's replay buffer
@@ -131,7 +131,7 @@ def train(args):
                 break
         
         # End of episode
-        episode_count += 1
+        # episode_count += 1
         all_episode_rewards.append(episode_reward)
 
         # Decay epsilon
