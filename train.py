@@ -57,7 +57,8 @@ def train(args):
     obs_dim = 3  # Hardcoded for now
     
     # Determine device
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = "cpu"
 
     # Initialize agent
     agent = DQNAgent(
