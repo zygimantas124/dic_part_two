@@ -18,8 +18,8 @@ class DeliveryRobotEnv(gym.Env):
         self.height = 600
         self.robot_radius = 10
         self.step_size = 10.0
-        self.angle = 0.0
         self.reward = 0.0
+        self.action = None
 
         self.show_walls = show_walls
         self.show_obstacles = show_obstacles
@@ -46,10 +46,16 @@ class DeliveryRobotEnv(gym.Env):
         }
         self.action_space = spaces.Discrete(len(self.directions))
 
-        self.observation_space = spaces.Box(
-            low=np.array([0, 0] + [0] * len(self.tables), dtype=np.float32),
-            high=np.array([self.width, self.height] + [1] * len(self.tables), dtype=np.float32),
-            dtype=np.float32,
+        # self.observation_space = spaces.Box(  # Observe coordinates, action, and delivery status
+        #     low=np.array([0, 0] + [0] * len(self.tables), dtype=np.float32),
+        #     high=np.array([self.width, self.height] + [1] * len(self.tables), dtype=np.float32),
+        #     dtype=np.float32,
+        # )
+
+        self.observation_space = spaces.Box(  # Only "observe coordinates"
+            low=np.array([0, 0], dtype=np.float32),
+            high=np.array([self.width, self.height], dtype=np.float32),
+            dtype=np.float32
         )
 
         self.render_mode = render_mode
@@ -62,15 +68,14 @@ class DeliveryRobotEnv(gym.Env):
     def reset(self, seed=0, options=None):
         super().reset(seed=seed)
         self.robot_pos = self.start_pos.copy()
-        self.angle = 0.0
         self.total_reward = 0.0
         self.step_count = 0
         self.delivered_tables = set()
         return self._get_obs(), {}
 
     def step(self, action):
-        self.angle = action
-        movement = (self.directions[action] * self.step_size).flatten()
+        self.action = action
+        movement = (self.directions[self.action] * self.step_size).flatten()
 
         new_pos = self.robot_pos + movement
         new_pos = np.clip(
@@ -99,9 +104,12 @@ class DeliveryRobotEnv(gym.Env):
         return self._get_obs(), reward, done, False, {}
 
     def _get_obs(self):
-        status = [1 if i in self.delivered_tables else 0 for i in range(len(self.tables))]
-        # TODO: Only first 3 elements required as Qnet input, check with train.py
-        return np.array([self.robot_pos[0], self.robot_pos[1]] + status, dtype=np.float32)
+        # Returns coordinates, last action taken, and delivery status of tables
+        # status = [1 if i in self.delivered_tables else 0 for i in range(len(self.tables))]
+        # return np.array([self.robot_pos[0], self.robot_pos[1], self.action] + status, dtype=np.float32)
+
+        # Returns coordinates only
+        return np.array([self.robot_pos[0], self.robot_pos[1]])
 
     def _check_collision(self, pos):
         x, y = pos
