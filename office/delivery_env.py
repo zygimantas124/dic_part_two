@@ -52,10 +52,15 @@ class DeliveryRobotEnv(gym.Env):
         #     dtype=np.float32,
         # )
 
-        self.observation_space = spaces.Box(  # Only "observe coordinates"
-            low=np.array([0, 0], dtype=np.float32),
-            high=np.array([self.width, self.height], dtype=np.float32),
-            dtype=np.float32
+        # self.observation_space = spaces.Box(  # Only "observe coordinates"
+        #     low=np.array([0, 0], dtype=np.float32),
+        #     high=np.array([self.width, self.height], dtype=np.float32),
+        #     dtype=np.float32
+        # )
+        self.observation_space = spaces.Box(
+        low=np.array([0, 0, 0], dtype=np.float32),
+        high=np.array([self.width, self.height, len(self.tables)], dtype=np.float32),
+        dtype=np.float32
         )
 
         self.render_mode = render_mode
