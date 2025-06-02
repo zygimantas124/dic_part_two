@@ -103,6 +103,7 @@ def render_environment(env):
     # ==============================================
     # TABLES
     # ==============================================
+
     if RENDER_CONFIG["use_images"]["tables"]:
         delivered_img = load_image(env, "tables", "delivered")
         pending_img = load_image(env, "tables", "pending")
@@ -113,7 +114,6 @@ def render_environment(env):
                 scaled_table = pygame.transform.scale(img, (table[2], table[3]))
                 win.blit(scaled_table, (table[0], table[1]))
             else:
-                # Fallback to color
                 color = (
                     RENDER_CONFIG["colors"]["tables"]["delivered"]
                     if i in env.delivered_tables
@@ -121,6 +121,22 @@ def render_environment(env):
                 )
                 pygame.draw.rect(win, color, table)
                 pygame.draw.rect(win, RENDER_CONFIG["colors"]["tables"]["border"], table, 2)
+
+            # --- Delivery highlight for pending tables ---
+            if i not in env.delivered_tables:
+                tx, ty, tw, th = table
+                margin = env.robot_radius
+                expanded_rect = pygame.Rect(
+                    tx - margin,
+                    ty - margin,
+                    tw + 2 * margin,
+                    th + 2 * margin
+                )
+
+                highlight_surf = pygame.Surface((expanded_rect.width, expanded_rect.height), pygame.SRCALPHA)
+                pygame.draw.rect(highlight_surf, (0, 255, 0, 60), highlight_surf.get_rect())
+                win.blit(highlight_surf, (expanded_rect.left, expanded_rect.top))
+
     else:
         for i, table in enumerate(env.tables):
             color = (
@@ -131,6 +147,20 @@ def render_environment(env):
             pygame.draw.rect(win, color, table)
             pygame.draw.rect(win, RENDER_CONFIG["colors"]["tables"]["border"], table, 2)
 
+            # --- Delivery highlight for pending tables ---
+            if i not in env.delivered_tables:
+                tx, ty, tw, th = table
+                margin = env.robot_radius
+                expanded_rect = pygame.Rect(
+                    tx - margin,
+                    ty - margin,
+                    tw + 2 * margin,
+                    th + 2 * margin
+                )
+
+                highlight_surf = pygame.Surface((expanded_rect.width, expanded_rect.height), pygame.SRCALPHA)
+                pygame.draw.rect(highlight_surf, (0, 255, 0, 60), highlight_surf.get_rect())
+                win.blit(highlight_surf, (expanded_rect.left, expanded_rect.top))
     # ==============================================
     # OBSTACLES
     # ==============================================
