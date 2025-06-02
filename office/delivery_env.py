@@ -87,7 +87,7 @@ class DeliveryRobotEnv(gym.Env):
             new_pos, [self.robot_radius] * 2, [self.width - self.robot_radius, self.height - self.robot_radius]
         )
 
-        reward = -0.02  # Default step penalty
+        reward = -0.01   # Default step penalty
         # TODO: clip rewards
         if not self._check_collision(new_pos):
             self.robot_pos = new_pos
@@ -97,11 +97,11 @@ class DeliveryRobotEnv(gym.Env):
 
             reward += self._check_table_delivery()
         else:
-            reward = -2.0  # Collision penalty
+            reward = -1.0  # Collision penalty
 
         done = len(self.delivered_tables) == len(self.tables)
         if done:
-            reward += 200.0
+            reward += 2000.0
 
         self.total_reward += reward
         self.step_count += 1
@@ -172,7 +172,8 @@ class DeliveryRobotEnv(gym.Env):
                 # Check if robot center is inside the expanded rectangle
                 if (expanded_x <= rx <= expanded_x + expanded_w) and (expanded_y <= ry <= expanded_y + expanded_h):
                     self.delivered_tables.add(i)
-                    reward += 50
+                    reward += 10
+
         return reward
 
     def render(self):
