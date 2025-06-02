@@ -203,15 +203,15 @@ def render_environment(env):
                 (int(env.robot_pos[0]), int(env.robot_pos[1])),
                 env.robot_radius,
             )
-            end_x = env.robot_pos[0] + (env.robot_radius + 5) * np.cos(np.radians(env.angle))
-            end_y = env.robot_pos[1] + (env.robot_radius + 5) * np.sin(np.radians(env.angle))
-            pygame.draw.line(
-                win,
-                RENDER_CONFIG["colors"]["robot"]["direction"],
-                (int(env.robot_pos[0]), int(env.robot_pos[1])),
-                (int(end_x), int(end_y)),
-                3,
-            )
+            # end_x = env.robot_pos[0] + (env.robot_radius + 5) * np.cos(np.radians(env.angle))
+            # end_y = env.robot_pos[1] + (env.robot_radius + 5) * np.sin(np.radians(env.angle))
+            # pygame.draw.line(
+            #     win,
+            #     RENDER_CONFIG["colors"]["robot"]["direction"],
+            #     (int(env.robot_pos[0]), int(env.robot_pos[1])),
+            #     (int(end_x), int(end_y)),
+            #     3,
+            # )
     else:
         pygame.draw.circle(
             win,
@@ -219,15 +219,15 @@ def render_environment(env):
             (int(env.robot_pos[0]), int(env.robot_pos[1])),
             env.robot_radius,
         )
-        end_x = env.robot_pos[0] + (env.robot_radius + 5) * np.cos(np.radians(env.angle))
-        end_y = env.robot_pos[1] + (env.robot_radius + 5) * np.sin(np.radians(env.angle))
-        pygame.draw.line(
-            win,
-            RENDER_CONFIG["colors"]["robot"]["direction"],
-            (int(env.robot_pos[0]), int(env.robot_pos[1])),
-            (int(end_x), int(end_y)),
-            3,
-        )
+        # end_x = env.robot_pos[0] + (env.robot_radius + 5) * np.cos(np.radians(env.angle))
+        # end_y = env.robot_pos[1] + (env.robot_radius + 5) * np.sin(np.radians(env.angle))
+        # pygame.draw.line(
+        #     win,
+        #     RENDER_CONFIG["colors"]["robot"]["direction"],
+        #     (int(env.robot_pos[0]), int(env.robot_pos[1])),
+        #     (int(end_x), int(end_y)),
+        #     3,
+        # )
 
     # ==============================================
     # UI TEXT
