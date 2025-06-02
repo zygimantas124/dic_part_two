@@ -103,6 +103,8 @@ class DeliveryRobotEnv(gym.Env):
         if done:
             reward += 2000.0
 
+        reward = np.clip(reward, -1.0, 1.0) # Clip rewards to stabilise training
+
         self.total_reward += reward
         self.step_count += 1
 
