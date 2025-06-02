@@ -114,7 +114,8 @@ class DeliveryRobotEnv(gym.Env):
         # return np.array([self.robot_pos[0], self.robot_pos[1], self.action] + status, dtype=np.float32)
 
         # Returns coordinates only
-        return np.array([self.robot_pos[0], self.robot_pos[1]])
+        # return np.array([self.robot_pos[0], self.robot_pos[1]])
+        return np.array([self.robot_pos[0], self.robot_pos[1], len(self.delivered_tables)], dtype=np.float32)
 
     def _check_collision(self, pos):
         x, y = pos
