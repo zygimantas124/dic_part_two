@@ -100,7 +100,6 @@ def train(args):
     obs, _ = env.reset()
     total_steps = 0
     all_episode_rewards = []
-    best_reward_so_far = -np.inf
 
     logger.info(f"Starting training for {args.max_episodes} episodes...")
 
@@ -118,14 +117,17 @@ def train(args):
             next_obs, reward, terminated, truncated, _ = env.step(action_idx)
             done = terminated or truncated
 
+            # Store transition in replay buffer
             agent.store_transition(obs, action_idx, reward, next_obs, done)
+
+            # Learn immediately (if ready)
+            if total_steps % 4 == 0 and agent._can_learn():
+                agent.learn()
+
             obs = next_obs
             episode_reward += reward
             total_steps += 1
             episode_steps += 1
-
-            if agent._can_learn():
-                agent.learn()
 
             if done:
                 termination_type = "terminated" if terminated else "truncated"
@@ -134,8 +136,12 @@ def train(args):
 
         all_episode_rewards.append(episode_reward)
 
-        if episode_count > 100:
+        if episode_count > 20:
             agent.decay_epsilon_multiplicative()
+
+        # if np.mean(all_episode_rewards[-5:]) < 0 and agent.epsilon < 0.8:
+        #     agent.epsilon = 1
+        #     logger.warning("Resetting epsilon to encourage recovery from collapse")
 
         if episode_count % args.log_interval == 0:
             recent_rewards = all_episode_rewards[-args.log_interval:]
@@ -148,6 +154,8 @@ def train(args):
         if episode_count >= args.max_episodes:
             logger.info("Maximum episodes reached. Training finished.")
             break
+
+
 
     env.close()
     logger.info("Training complete.")
