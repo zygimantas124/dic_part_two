@@ -117,21 +117,21 @@ class DeliveryRobotEnv(gym.Env):
             if np.linalg.norm(pos - np.array([obs_x, obs_y])) < obs_r + self.robot_radius:
                 return True
             
-        # Check table collisions (with reduced collision area to allow delivery)
-        # collision_margin = self.robot_radius * 1  #larger means more lenient delivery area
-        # for tx, ty, tw, th in self.tables:
-        #     collision_x = tx + collision_margin
-        #     collision_y = ty + collision_margin
-        #     collision_w = tw - 2 * collision_margin
-        #     collision_h = th - 2 * collision_margin
+        #Check table collisions (with reduced collision area to allow delivery)
+        collision_margin = self.robot_radius * 1  #larger means more lenient delivery area
+        for tx, ty, tw, th in self.tables:
+            collision_x = tx + collision_margin
+            collision_y = ty + collision_margin
+            collision_w = tw - 2 * collision_margin
+            collision_h = th - 2 * collision_margin
         
-        #     # Check if the reduced area is still positive
-        #     if collision_w > 0 and collision_h > 0:
-        #         if (
-        #             collision_x - self.robot_radius <= x <= collision_x + collision_w + self.robot_radius
-        #             and collision_y - self.robot_radius <= y <= collision_y + collision_h + self.robot_radius
-        #         ):
-        #             return True
+            # Check if the reduced area is still positive
+            if collision_w > 0 and collision_h > 0:
+                if (
+                    collision_x - self.robot_radius <= x <= collision_x + collision_w + self.robot_radius
+                    and collision_y - self.robot_radius <= y <= collision_y + collision_h + self.robot_radius
+                ):
+                    return True
 
         return False
 
