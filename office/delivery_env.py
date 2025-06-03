@@ -46,21 +46,10 @@ class DeliveryRobotEnv(gym.Env):
         }
         self.action_space = spaces.Discrete(len(self.directions))
 
-        # self.observation_space = spaces.Box(  # Observe coordinates, action, and delivery status
-        #     low=np.array([0, 0] + [0] * len(self.tables), dtype=np.float32),
-        #     high=np.array([self.width, self.height] + [1] * len(self.tables), dtype=np.float32),
-        #     dtype=np.float32,
-        # )
-
-        # self.observation_space = spaces.Box(  # Only "observe coordinates"
-        #     low=np.array([0, 0], dtype=np.float32),
-        #     high=np.array([self.width, self.height], dtype=np.float32),
-        #     dtype=np.float32
-        # )
-        self.observation_space = spaces.Box(
-        low=np.array([0, 0, 0], dtype=np.float32),
-        high=np.array([self.width, self.height, len(self.tables)], dtype=np.float32),
-        dtype=np.float32
+        self.observation_space = spaces.Box(  # Observe coordinates and delivery status
+            low=np.array([0, 0] + [0] * len(self.tables), dtype=np.float32),
+            high=np.array([self.width, self.height] + [1] * len(self.tables), dtype=np.float32),
+            dtype=np.float32,
         )
 
         self.render_mode = render_mode
@@ -120,13 +109,9 @@ class DeliveryRobotEnv(gym.Env):
         return self._get_obs(), reward, done, False, {}
 
     def _get_obs(self):
-        # Returns coordinates, last action taken, and delivery status of tables
-        # status = [1 if i in self.delivered_tables else 0 for i in range(len(self.tables))]
-        # return np.array([self.robot_pos[0], self.robot_pos[1], self.action] + status, dtype=np.float32)
-
-        # Returns coordinates only
-        # return np.array([self.robot_pos[0], self.robot_pos[1]])
-        return np.array([self.robot_pos[0], self.robot_pos[1], len(self.delivered_tables)], dtype=np.float32)
+        # Returns coordinates and delivery status of tables
+        status = [1 if i in self.delivered_tables else 0 for i in range(len(self.tables))]
+        return np.array([self.robot_pos[0], self.robot_pos[1]] + status, dtype=np.float32)
 
     def _check_collision(self, pos):
         x, y = pos
