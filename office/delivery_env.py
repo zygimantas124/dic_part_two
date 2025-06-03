@@ -74,6 +74,7 @@ class DeliveryRobotEnv(gym.Env):
         super().reset(seed=seed)
         self.robot_pos = self.start_pos.copy()
         self.total_reward = 0.0
+        self.consecutive_collisions = 0
         self.step_count = 0
         self.delivered_tables = set()
         return self._get_obs(), {}
@@ -88,22 +89,30 @@ class DeliveryRobotEnv(gym.Env):
         )
 
         reward = -0.01   # Default step penalty
-        # TODO: clip rewards
         if not self._check_collision(new_pos):
             self.robot_pos = new_pos
+            self.consecutive_collisions = 0  # Reset collision count on successful move
 
             if self._on_carpet():
                 reward -= 0.2
 
             reward += self._check_table_delivery()
         else:
-            reward = -1.0  # Collision penalty
-
+            self.consecutive_collisions += 1
+            if self.consecutive_collisions >= 5:
+                reward -= 10 # Penalty for consecutive collisions
+            else:
+                reward -= 1.0  # Collision penalty, non-consecutive
+        
+        if self.consecutive_collisions > 20:
+            done = True
+            reward -= 30.0  # Heavy penalty for too many collisions
+    
         done = len(self.delivered_tables) == len(self.tables)
         if done:
             reward += 2000.0
 
-        reward = np.clip(reward, -1.0, 1.0) # Clip rewards to stabilise training
+        reward = np.clip(reward, -50.0, 50.0) # Clip rewards to stabilise training
 
         self.total_reward += reward
         self.step_count += 1
