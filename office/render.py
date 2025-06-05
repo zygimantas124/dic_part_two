@@ -161,6 +161,32 @@ def render_environment(env):
                 highlight_surf = pygame.Surface((expanded_rect.width, expanded_rect.height), pygame.SRCALPHA)
                 pygame.draw.rect(highlight_surf, (0, 255, 0, 60), highlight_surf.get_rect())
                 win.blit(highlight_surf, (expanded_rect.left, expanded_rect.top))
+
+    # ==============================================
+    # TABLE PRIORITIES TEXT
+    # ==============================================
+        if hasattr(env, 'table_priorities'):
+            for i, table in enumerate(env.tables):
+                tx, ty, tw, th = table
+                priority_value = env.table_priorities.get(i, 0)
+                
+                # Choose text color based on delivery status
+                if i in env.delivered_tables:
+                    text_color = (255, 255, 255)  # White for delivered
+                else:
+                    text_color = (0, 0, 0)        # Black for pending
+                
+                # Create priority text
+                priority_text = env.font.render(f"R:{priority_value}", True, text_color)
+                
+                # Position text at center of table
+                text_rect = priority_text.get_rect()
+                text_x = tx + (tw - text_rect.width) // 2
+                text_y = ty + (th - text_rect.height) // 2
+                
+                # Draw the priority text
+                win.blit(priority_text, (text_x, text_y))
+
     # ==============================================
     # OBSTACLES
     # ==============================================

@@ -52,6 +52,14 @@ class DeliveryRobotEnv(gym.Env):
             dtype=np.float32,
         )
 
+        self.table_priorities = {
+                    0: 15,  # High
+                    1: 10,  # Medium  
+                    2: 25,  # Highest
+                    3: 5,   # Low 
+                    4: 12   # Medium
+                }
+
         self.render_mode = render_mode
         self.window = None
         self.clock = None
@@ -154,6 +162,7 @@ class DeliveryRobotEnv(gym.Env):
         return False
 
     def _check_table_delivery(self):
+
         reward = 0
         for i, (tx, ty, tw, th) in enumerate(self.tables):
             if i not in self.delivered_tables:
@@ -168,7 +177,7 @@ class DeliveryRobotEnv(gym.Env):
                 # Check if robot center is inside the expanded rectangle
                 if (expanded_x <= rx <= expanded_x + expanded_w) and (expanded_y <= ry <= expanded_y + expanded_h):
                     self.delivered_tables.add(i)
-                    reward += 10
+                    reward += self.table_priorities[i] # adjust reward based on table priority (defined in __init__)
 
         return reward
 
