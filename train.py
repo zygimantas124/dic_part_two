@@ -40,7 +40,7 @@ def setup_logger(log_level=logging.INFO, log_file="training.log"):
 def parse_args(argv=None):
     p = ArgumentParser(description="Deep Q-Learning Training Script")
     
-    p.add_argument("--env_render_mode", type=str, default=None)
+    p.add_argument("--render_mode", type=str, default=None)
     p.add_argument("--n_actions", type=int, default=8)
     p.add_argument("--gamma", type=float, default=0.999)
     p.add_argument("--epsilon_start", type=float, default=1.0)
