@@ -59,15 +59,12 @@ def parse_args(argv=None):
 
     return p.parse_args(argv)
 
-# ---------- Discrete Action Conversion ----------
-def action_to_angle(action_idx, n_actions):
-    return action_idx * (360.0 / n_actions)
 
 # ---------- Main Training Loop ----------
 def train(args):
     logger = setup_logger(log_level=logging.DEBUG)  # Change to INFO if you want less verbosity
 
-    render_mode = args.env_render_mode if args.env_render_mode in [None, "human", "rgb_array"] else None
+    render_mode = args.render_mode if args.render_mode in [None, "human", "rgb_array"] else None
     env = DeliveryRobotEnv(show_walls=False, show_carpets=False, show_obstacles=False, render_mode=render_mode)
     obs_dim = env.observation_space.shape[0]
     device = "cpu"
@@ -110,7 +107,7 @@ def train(args):
         done = False
 
         while not done and episode_steps < args.max_episode_steps:
-            if args.env_render_mode == "human":
+            if args.render_mode == "human":
                 env.render()
 
             action_idx = agent.select_action(obs)
