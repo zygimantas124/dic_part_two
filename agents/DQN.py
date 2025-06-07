@@ -84,9 +84,10 @@ class DQNAgent:
     """
     Deep Q-Network Agent.
     """
-    def __init__(self, obs_dim, n_actions, gamma=0.99, epsilon=1.0, epsilon_min=0.05,
-                 epsilon_decay_rate=0.99, alpha=1e-3, batch_size=64, buffer_size=1e5, 
-                 min_replay_size=1e3, target_update_freq=1e3, device=None):
+    def __init__(self, obs_dim, n_actions, gamma, epsilon, epsilon_min,
+                epsilon_decay_rate, alpha, batch_size, buffer_size, 
+                min_replay_size, target_update_freq, device):
+
         """
         Initialize the DQNAgent.
         Args:
