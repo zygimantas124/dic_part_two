@@ -33,7 +33,7 @@ CONFIGS = {
         name="complex",
         walls="complex",
         tables="complex",
-        carpets="default",
+        carpets="complex",
         people="crowded",
         furniture="office",
     ),
@@ -43,8 +43,8 @@ CONFIGS = {
         walls="open_office",
         tables="open_office",
         carpets="none",
-        people="default",
-        furniture="default",
+        people="open_office",
+        furniture="open_office",
     ),
 }
 

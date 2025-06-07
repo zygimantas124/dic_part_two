@@ -70,11 +70,11 @@ def _get_complex_tables():
 def _get_simple_tables():
     """Simple configuration with just 1 table."""
     return [
-        (600, 400, 80, 80),
+        (600, 50, 150, 100),
     ]
 
 def _get_open_office_tables():
     """Simple configuration with just 1 table."""
     return [
-        (600, 400, 80, 80),
+        (600, 50, 120, 80),
     ]

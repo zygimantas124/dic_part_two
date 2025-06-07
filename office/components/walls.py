@@ -39,7 +39,7 @@ def _get_simple_walls():
 def _get_open_office_walls():
     """Open office layout with minimal walls."""
     return (
-        _get_office_border_walls() +
+        _get_border_walls() +
         _get_office_horizontal_walls() +
         _get_office_vertical_walls()
     )
@@ -77,20 +77,13 @@ def _get_vertical_interior_walls():
     ]
 
 ########## For OPEN OFFICE WALLS ##########
-def _get_office_border_walls():
-    return [
-        (0, 0, 800, 6),      # Top
-        (0, 0, 8, 600),      # Left
-        (792, 0, 8, 600),    # Right
-        (0, 594, 800, 6),    # Bottom
-    ]
+
 def _get_office_horizontal_walls():
-    return [
-        (0, 60, 800, 6),      # Single horizontal wall
-    ]
+    return [    ]
 def _get_office_vertical_walls():
     return [
-        (400, 0, 6, 600),     # Single vertical wall
+        (250, 200, 6, 400),    
+        (450, 0, 6, 450),      
     ]
 
 
