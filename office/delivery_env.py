@@ -8,12 +8,13 @@ from office.render import render_environment
 from office.components.tables import get_target_tables
 from office.components.obstacles import get_carpets, get_people, get_furniture
 from office.components.walls import get_walls
+from office.components.env_configs import get_config, EnvironmentConfig
 
 
 class DeliveryRobotEnv(gym.Env):
     metadata = {"render_modes": ["human"], "render_fps": 60}
 
-    def __init__(self, render_mode=None, show_walls=True, show_obstacles=True, show_carpets=True):
+    def __init__(self, config="simple", render_mode=None, show_walls=True, show_obstacles=True, show_carpets=True, custom_config=None):
         self.width = 800
         self.height = 600
         self.robot_radius = 10
@@ -25,12 +26,29 @@ class DeliveryRobotEnv(gym.Env):
         self.show_obstacles = show_obstacles
         self.show_carpets = show_carpets
 
-        self.walls = get_walls() if show_walls else []
-        self.tables = get_target_tables()
-        self.carpets = get_carpets() if show_carpets else []
-        self.obstacles = (get_people() + get_furniture()) if show_obstacles else []
+        # Load configuration
+        if custom_config:
+            cfg = custom_config
+        else:
+            cfg = get_config(config)
 
-        self.start_pos = np.array([100, 500])
+        # Load components based on configuration
+        self.walls = get_walls(cfg.walls) if show_walls else []
+        self.tables = get_target_tables(cfg.tables, scale=cfg.table_scale)
+        self.carpets = get_carpets(cfg.carpets) if show_carpets else []
+
+        obstacles = []
+        if show_obstacles:
+            obstacles.extend(get_people(cfg.people))
+            obstacles.extend(get_furniture(cfg.furniture))
+        self.obstacles = obstacles
+
+        # Use configuration's start_pos if provided
+        if cfg.start_pos:
+            self.start_pos = np.array(cfg.start_pos)
+        else:
+            self.start_pos = np.array([100, 500])  # default
+
         self.robot_pos = self.start_pos.copy()
         self.delivered_tables = set()
 
@@ -52,14 +70,6 @@ class DeliveryRobotEnv(gym.Env):
             dtype=np.float32,
         )
 
-        self.table_priorities = {
-                    0: 15,  # High
-                    1: 10,  # Medium  
-                    2: 25,  # Highest
-                    3: 5,   # Low 
-                    4: 12   # Medium
-                }
-
         self.render_mode = render_mode
         self.window = None
         self.clock = None
@@ -71,7 +81,7 @@ class DeliveryRobotEnv(gym.Env):
         super().reset(seed=seed)
         self.robot_pos = self.start_pos.copy()
         self.total_reward = 0.0
-        self.consecutive_collisions = 0
+        self.consecutive_collisions = 0 # DELETE before submission if not needed
         self.step_count = 0
         self.delivered_tables = set()
         return self._get_obs(), {}
@@ -96,7 +106,7 @@ class DeliveryRobotEnv(gym.Env):
             reward += self._check_table_delivery()
         else:        
             reward -= 1.0  # Collision penalty, non-consecutive
-        
+            # Removed consecutive collision logic
 
         done = len(self.delivered_tables) == len(self.tables)
         # if done:
@@ -170,7 +180,7 @@ class DeliveryRobotEnv(gym.Env):
                 # Check if robot center is inside the expanded rectangle
                 if (expanded_x <= rx <= expanded_x + expanded_w) and (expanded_y <= ry <= expanded_y + expanded_h):
                     self.delivered_tables.add(i)
-                    reward += self.table_priorities[i] # adjust reward based on table priority (defined in __init__)
+                    reward += 15
 
         return reward
 

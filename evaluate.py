@@ -25,7 +25,7 @@ def parse_eval_args(argv=None):
     return p.parse_args(argv)
 
 def evaluate_agent(args):
-    env = DeliveryRobotEnv(render_mode=args.render_mode, show_walls=False, show_carpets=False, show_obstacles=False)
+    env = DeliveryRobotEnv(config = 'simple', render_mode=args.render_mode, show_walls=False, show_carpets=False, show_obstacles=False)
     obs_dim = env.observation_space.shape[0]
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
