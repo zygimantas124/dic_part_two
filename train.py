@@ -5,7 +5,15 @@ from office.delivery_env import DeliveryRobotEnv
 from agents.DQN import DQNAgent
 from tqdm import tqdm
 import logging
-import sys
+
+def set_global_seed(seed):
+    random.seed(seed)                 # Python built-in
+    np.random.seed(seed)             # NumPy
+    torch.manual_seed(seed)          # PyTorch CPU
+    torch.cuda.manual_seed_all(seed) # PyTorch GPU (if used)
+    os.environ["PYTHONHASHSEED"] = str(seed)  # For consistent hashing
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 # ---------- Logging Setup ----------
 class TqdmLoggingHandler(logging.Handler):
@@ -56,6 +64,7 @@ def parse_args(argv=None):
     p.add_argument("--log_interval", type=int, default=5)
     p.add_argument("--save_model_path", type=str, default="saved_Qnets/bare_delivery_env_model.pth")
     p.add_argument("--load_model_path", type=str, default=None)
+    p.add_argument("--seed", type=int, default=1, help="Random seed for reproducibility")
 
     return p.parse_args(argv)
 
@@ -63,7 +72,7 @@ def parse_args(argv=None):
 # ---------- Main Training Loop ----------
 def train(args):
     logger = setup_logger(log_level=logging.DEBUG)  # Change to INFO if you want less verbosity
-
+    set_global_seed(args.seed)
     render_mode = args.render_mode if args.render_mode in [None, "human", "rgb_array"] else None
     env = DeliveryRobotEnv(show_walls=False, show_carpets=False, show_obstacles=False, render_mode=render_mode)
     obs_dim = env.observation_space.shape[0]
