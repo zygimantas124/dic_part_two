@@ -94,20 +94,13 @@ class DeliveryRobotEnv(gym.Env):
                 reward -= 0.2
 
             reward += self._check_table_delivery()
-        else:
-            self.consecutive_collisions += 1
-            if self.consecutive_collisions >= 5:
-                reward -= 10 # Penalty for consecutive collisions
-            else:
-                reward -= 1.0  # Collision penalty, non-consecutive
+        else:        
+            reward -= 1.0  # Collision penalty, non-consecutive
         
-        if self.consecutive_collisions > 20:
-            done = True
-            reward -= 30.0  # Heavy penalty for too many collisions
-    
+
         done = len(self.delivered_tables) == len(self.tables)
-        if done:
-            reward += 2000.0
+        # if done:
+        #     reward += 2000.0
 
         reward = np.clip(reward, -50.0, 50.0) # Clip rewards to stabilise training
 
