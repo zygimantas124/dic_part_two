@@ -72,7 +72,7 @@ def evaluate_agent(args):
                 if args.render_delay > 0:
                     time.sleep(args.render_delay)
 
-            action = agent.select_action(obs, explore=True)
+            action = agent.select_action(obs, explore=False)
             obs, reward, terminated, truncated, _ = env.step(action)
             done = terminated or truncated
             total_reward += reward
