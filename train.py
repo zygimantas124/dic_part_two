@@ -145,8 +145,7 @@ def train(args):
                 break
 
         all_episode_rewards.append(episode_reward)
-
-        if episode_count > 20:
+        if done:
             agent.decay_epsilon_multiplicative()
 
         # if np.mean(all_episode_rewards[-5:]) < 0 and agent.epsilon < 0.8:
