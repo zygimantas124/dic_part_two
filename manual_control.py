@@ -7,7 +7,7 @@ pygame.init()
 
 # Create the environment
 env = DeliveryRobotEnv(
-    config="open_office",
+    config="open_office_simple",
     render_mode="human",
     show_walls=True,
     show_obstacles=True,

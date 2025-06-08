@@ -78,7 +78,7 @@ def train(args):
     logger = setup_logger(log_level=logging.DEBUG)  # Change to INFO if you want less verbosity
     set_global_seed(args.seed)
     render_mode = args.render_mode if args.render_mode in [None, "human", "rgb_array"] else None
-    env = DeliveryRobotEnv(config="simple", show_walls=False, show_carpets=False, show_obstacles=False, render_mode=render_mode)
+    env = DeliveryRobotEnv(config="open_office_simple", show_walls=False, show_carpets=False, show_obstacles=False, render_mode=render_mode)
     obs_dim = env.observation_space.shape[0]
     device = "cpu"
 

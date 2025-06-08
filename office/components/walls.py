@@ -16,6 +16,7 @@ def get_walls(config_name="simple"):
         "simple": _get_simple_walls,
         "complex": _get_complex_walls,
         "open_office": _get_open_office_walls,
+        "open_office_simple": _get_open_office_simple_walls,
     }
     
     if config_name not in configs:
@@ -42,6 +43,14 @@ def _get_open_office_walls():
         _get_border_walls() +
         _get_office_horizontal_walls() +
         _get_office_vertical_walls()
+    )
+
+def _get_open_office_simple_walls():
+    """Open office Simple layout with minimal walls."""
+    return (
+        _get_border_walls() +
+        _get_office_simple_horizontal_walls() +
+        _get_office_simple_vertical_walls()
     )
 
 
@@ -84,6 +93,17 @@ def _get_office_vertical_walls():
     return [
         (250, 200, 6, 400),    
         (450, 0, 6, 450),      
+    ]
+
+
+########## For OPEN OFFICE SIMPLE WALLS ##########
+
+def _get_office_simple_horizontal_walls():
+    return [    ]
+def _get_office_simple_vertical_walls():
+    return [
+        (250, 400, 6, 250),    
+        (450, 0, 6, 250),      
     ]
 
 

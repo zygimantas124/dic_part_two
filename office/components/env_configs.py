@@ -35,7 +35,7 @@ CONFIGS = {
         tables="complex",
         carpets="complex",
         people="crowded",
-        furniture="office",
+        furniture="complex",
     ),
     
     "open_office": EnvironmentConfig(
@@ -45,6 +45,15 @@ CONFIGS = {
         carpets="none",
         people="open_office",
         furniture="open_office",
+    ),
+
+    "open_office_simple": EnvironmentConfig(
+        name="open_office_simple",
+        walls="open_office_simple",
+        tables="open_office",
+        carpets="none",
+        people="open_office_simple",
+        furniture="open_office_simple",
     ),
 }
 

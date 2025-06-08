@@ -6,6 +6,7 @@ if __name__ == "__main__":
         show_walls=True,  # Set to False to hide walls
         show_obstacles=True,  # Set to False to hide obstacles
         show_carpets=True,  # Set to False to hide carpets
+        config="open_office_simple"
     )
     obs, _ = env.reset()
 
