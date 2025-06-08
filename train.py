@@ -175,3 +175,6 @@ if __name__ == "__main__":
     args = parse_args()
     print("Training with args:", args)
     train(args)
+
+
+# python train.py --max_episode_steps=50000 --target_update_freq=10000 --max_episodes=200 --min_replay_size=500 --batch_size=32 --gamma=0.99 D
