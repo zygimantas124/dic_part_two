@@ -38,7 +38,7 @@ class ReplayBuffer:
         Args:
             capacity (int): Maximum number of experiences to store in the buffer.
         """
-        self.buffer = deque(maxlen=10000) # Ensure capacity is an integer
+        self.buffer = deque(maxlen=int(capacity)) # Ensure capacity is an integer
 
     def add(self, state, action, reward, next_state, done):
         """
@@ -53,23 +53,16 @@ class ReplayBuffer:
         self.buffer.append((state, action, reward, next_state, done))
 
     def sample(self, batch_size):
-        """
-        Sample a batch of experiences from the buffer.
-        Args:
-            batch_size (int): Number of experiences to sample.
-        Returns:
-            tuple: A tuple of tensors (states, actions, rewards, next_states, dones).
-        """
         samples = random.sample(self.buffer, batch_size)
         states, actions, rewards, next_states, dones = map(np.array, zip(*samples))
         
         # Convert numpy arrays to PyTorch tensors
         return (
             torch.tensor(states, dtype=torch.float32),
-            torch.tensor(actions, dtype=torch.int64).unsqueeze(1), # Actions are indices
+            torch.tensor(actions, dtype=torch.int64).unsqueeze(1),
             torch.tensor(rewards, dtype=torch.float32).unsqueeze(1),
             torch.tensor(next_states, dtype=torch.float32),
-            torch.tensor(dones, dtype=torch.float32).unsqueeze(1), # Dones as float for multiplication
+            torch.tensor(dones, dtype=torch.float32).unsqueeze(1),
         )
 
     def __len__(self):
@@ -128,8 +121,9 @@ class DQNAgent:
         # Optimizer
         self.optimizer = optim.Adam(self.q_net.parameters(), lr=self.alpha)
 
-        # Replay Buffer
+        # Replay Buffers
         self.replay_buffer = ReplayBuffer(self.buffer_size)
+        self.goal_buffer = ReplayBuffer(10000) # Buffer for positive-reward transitions
         self.learn_step_counter = 0 # To track when to update target network
 
     def select_action(self, state, explore=True):
@@ -153,7 +147,7 @@ class DQNAgent:
 
     def store_transition(self, state, action, reward, next_state, done):
         """
-        Store an experience transition in the replay buffer.
+        Store an experience transition in the replay buffer and goal buffer if reward is positive.
         Args:
             state (np.ndarray): Current state.
             action (int): Action taken.
@@ -162,6 +156,8 @@ class DQNAgent:
             done (bool): Whether the episode has ended.
         """
         self.replay_buffer.add(state, action, reward, next_state, done)
+        if reward > 0:
+            self.goal_buffer.add(state, action, reward, next_state, done)
 
     def _can_learn(self):
         """Check if the agent has enough samples in the buffer to learn."""
@@ -169,21 +165,31 @@ class DQNAgent:
 
     def learn(self):
         """
-        Train the Q-Network using a batch of experiences from the replay buffer.
-        This method should be called after `store_transition` and when `_can_learn` is true.
+        Train the Q-Network using a batch of experiences from both the main replay buffer
+        and the goal buffer to reinforce successful behavior.
         """
         if not self._can_learn():
             return None  # Not enough samples to learn
 
-        # Sample a batch from the replay buffer
-        states, actions, rewards, next_states, dones = self.replay_buffer.sample(self.batch_size)
-        
-        # Move batch to the selected device
-        states = states.to(self.device)
-        actions = actions.to(self.device)
-        rewards = rewards.to(self.device)
-        next_states = next_states.to(self.device)
-        dones = dones.to(self.device)
+        # Split batch: sample from goal buffer and main buffer
+        goal_fraction = 0.25  # 25% of batch from goal-reaching transitions
+        n_goal = int(self.batch_size * goal_fraction)
+        n_main = self.batch_size - n_goal
+
+        # Sample with fallback if goal_buffer doesn't have enough data
+        if len(self.goal_buffer) >= n_goal:
+            goal_samples = self.goal_buffer.sample(n_goal)
+        else:
+            goal_samples = self.replay_buffer.sample(n_goal)
+
+        main_samples = self.replay_buffer.sample(n_main)
+
+        # Concatenate samples
+        states = torch.cat([goal_samples[0], main_samples[0]], dim=0).to(self.device)
+        actions = torch.cat([goal_samples[1], main_samples[1]], dim=0).to(self.device)
+        rewards = torch.cat([goal_samples[2], main_samples[2]], dim=0).to(self.device)
+        next_states = torch.cat([goal_samples[3], main_samples[3]], dim=0).to(self.device)
+        dones = torch.cat([goal_samples[4], main_samples[4]], dim=0).to(self.device)
 
         # Calculate target Q-values
         with torch.no_grad(): # Target network calculations don't require gradients
@@ -212,7 +218,6 @@ class DQNAgent:
             self.update_target_network()
         
         return loss.item()
-
 
     def update_target_network(self):
         """
