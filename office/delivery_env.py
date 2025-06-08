@@ -18,9 +18,10 @@ class DeliveryRobotEnv(gym.Env):
         self.width = 800
         self.height = 600
         self.robot_radius = 10
-        self.step_size = 10.0
-        self.reward = 0.0
+        self.step_size = 10.0  # Reduced for finer control
+        self.max_steps = 50000  # TODO: link this to argparse argument
         self.action = None
+        self.angle = 0.0  # Track orientation for observation
 
         self.show_walls = show_walls
         self.show_obstacles = show_obstacles
@@ -32,7 +33,7 @@ class DeliveryRobotEnv(gym.Env):
         else:
             cfg = get_config(config)
 
-        # Load components based on configuration
+        # Load components
         self.walls = get_walls(cfg.walls) if show_walls else []
         self.tables = get_target_tables(cfg.tables, scale=cfg.table_scale)
         self.carpets = get_carpets(cfg.carpets) if show_carpets else []
@@ -43,11 +44,11 @@ class DeliveryRobotEnv(gym.Env):
             obstacles.extend(get_furniture(cfg.furniture))
         self.obstacles = obstacles
 
-        # Use configuration's start_pos if provided
+        # Start position
         if cfg.start_pos:
-            self.start_pos = np.array(cfg.start_pos)
+            self.start_pos = np.array(cfg.start_pos, dtype=np.float32)
         else:
-            self.start_pos = np.array([100, 500])  # default
+            self.start_pos = np.array([100, 500], dtype=np.float32)
 
         self.robot_pos = self.start_pos.copy()
         self.delivered_tables = set()
