@@ -153,7 +153,7 @@ def train(args):
         #     logger.warning("Resetting epsilon to encourage recovery from collapse")
 
         if episode_count % args.log_interval == 0:
-            recent_rewards = all_episode_rewards[-args.log_interval:]
+            recent_rewards = all_episode_rewards[-args.log_interval:] if all_episode_rewards else [0]
             avg_reward = np.mean(recent_rewards)
             max_reward = np.max(recent_rewards)
             logger.info(f"Total Steps: {total_steps} | Episode: {episode_count} | "
