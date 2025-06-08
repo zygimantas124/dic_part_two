@@ -3,7 +3,7 @@ import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
 
-# does not work if starting outside of office
+# Assumed external dependencies
 from office.render import render_environment
 from office.components.tables import get_target_tables
 from office.components.obstacles import get_carpets, get_people, get_furniture
@@ -37,7 +37,6 @@ class DeliveryRobotEnv(gym.Env):
         self.walls = get_walls(cfg.walls) if show_walls else []
         self.tables = get_target_tables(cfg.tables, scale=cfg.table_scale)
         self.carpets = get_carpets(cfg.carpets) if show_carpets else []
-
         obstacles = []
         if show_obstacles:
             obstacles.extend(get_people(cfg.people))
@@ -53,21 +52,18 @@ class DeliveryRobotEnv(gym.Env):
         self.robot_pos = self.start_pos.copy()
         self.delivered_tables = set()
 
-        self.directions = {
-            0: np.array([0, -1]),  # Up
-            1: np.array([0, 1]),  # Down
-            2: np.array([-1, 0]),  # Left
-            3: np.array([1, 0]),  # Right
-            4: np.array([-1, -1]),  # Up-Left
-            5: np.array([1, -1]),  # Up-Right
-            6: np.array([-1, 1]),  # Down-Left
-            7: np.array([1, 1]),  # Down-Right
-        }
-        self.action_space = spaces.Discrete(len(self.directions))
+        # Action space: discrete directions
+        self.n_directions = 8
+        angles = np.linspace(0, 360, self.n_directions, endpoint=False)
+        self.directions = np.array([
+            [np.cos(np.radians(a)), np.sin(np.radians(a))] for a in angles
+        ], dtype=np.float32)
+        self.action_space = spaces.Discrete(self.n_directions)
 
-        self.observation_space = spaces.Box(  # Observe coordinates and delivery status
-            low=np.array([0, 0] + [0] * len(self.tables), dtype=np.float32),
-            high=np.array([self.width, self.height] + [1] * len(self.tables), dtype=np.float32),
+        # Observation space: [norm_x, norm_y, cos(angle), sin(angle), min_obs_dist, on_carpet] + table_statuses
+        self.observation_space = spaces.Box(
+            low=np.array([0.0, 0.0, -1.0, -1.0] + [0.0] * len(self.tables), dtype=np.float32),
+            high=np.array([1.0, 1.0, 1.0, 1.0] + [1.0] * len(self.tables), dtype=np.float32),
             dtype=np.float32,
         )
 
@@ -82,7 +78,6 @@ class DeliveryRobotEnv(gym.Env):
         super().reset(seed=seed)
         self.robot_pos = self.start_pos.copy()
         self.total_reward = 0.0
-        self.consecutive_collisions = 0 # DELETE before submission if not needed
         self.step_count = 0
         self.delivered_tables = set()
         self.action = None
@@ -111,8 +106,6 @@ class DeliveryRobotEnv(gym.Env):
 
         if not hit_wall and not self._check_collision(new_pos):
             self.robot_pos = new_pos
-            self.consecutive_collisions = 0  # Reset collision count on successful move
-
             if self._on_carpet():
                 reward -= 0.1  # Reduced carpet penalty
             reward += self._check_table_delivery()
@@ -131,41 +124,40 @@ class DeliveryRobotEnv(gym.Env):
         return self._get_obs(), reward, terminated, truncated, {}
 
     def _get_obs(self):
-        # Returns coordinates and delivery status of tables
         status = [1 if i in self.delivered_tables else 0 for i in range(len(self.tables))]
-        return np.array([self.robot_pos[0], self.robot_pos[1]] + status, dtype=np.float32)
+        norm_x = self.robot_pos[0] / self.width
+        norm_y = self.robot_pos[1] / self.height
+        angle_rad = np.radians(self.angle)
+        return np.array([norm_x, norm_y, np.cos(angle_rad), np.sin(angle_rad)] + status, dtype=np.float32)
 
     def _check_collision(self, pos):
         x, y = pos
-        # Check for walls
+        # Check walls
         for wall_x, wall_y, wall_w, wall_h in self.walls:
             if (
                 wall_x - self.robot_radius <= x <= wall_x + wall_w + self.robot_radius
                 and wall_y - self.robot_radius <= y <= wall_y + wall_h + self.robot_radius
             ):
                 return True
-            
-        # Check for obstacles
+
+        # Check obstacles
         for obs_x, obs_y, obs_r in self.obstacles:
             if np.linalg.norm(pos - np.array([obs_x, obs_y])) < obs_r + self.robot_radius:
                 return True
-            
-        #Check table collisions (with reduced collision area to allow delivery)
-        collision_margin = self.robot_radius * 1  #larger means more lenient delivery area
+
+        # Check table collisions (more lenient)
+        collision_margin = self.robot_radius * 0.5  # Reduced for easier delivery
         for tx, ty, tw, th in self.tables:
             collision_x = tx + collision_margin
             collision_y = ty + collision_margin
             collision_w = tw - 2 * collision_margin
             collision_h = th - 2 * collision_margin
-        
-            # Check if the reduced area is still positive
             if collision_w > 0 and collision_h > 0:
                 if (
                     collision_x - self.robot_radius <= x <= collision_x + collision_w + self.robot_radius
                     and collision_y - self.robot_radius <= y <= collision_y + collision_h + self.robot_radius
                 ):
                     return True
-
         return False
 
     def _on_carpet(self):
@@ -176,33 +168,25 @@ class DeliveryRobotEnv(gym.Env):
         return False
 
     def _check_table_delivery(self):
-
         reward = 0
+        delivery_margin = self.robot_radius * 2  # Reduced for tighter delivery
         for i, (tx, ty, tw, th) in enumerate(self.tables):
             if i not in self.delivered_tables:
                 rx, ry = self.robot_pos
-
-                # Expand the table area by robot radius
-                expanded_x = tx - self.robot_radius
-                expanded_y = ty - self.robot_radius
-                expanded_w = tw + 2 * self.robot_radius
-                expanded_h = th + 2 * self.robot_radius
-
-                # Check if robot center is inside the expanded rectangle
+                expanded_x = tx - delivery_margin
+                expanded_y = ty - delivery_margin
+                expanded_w = tw + 2 * delivery_margin
+                expanded_h = th + 2 * delivery_margin
                 if (expanded_x <= rx <= expanded_x + expanded_w) and (expanded_y <= ry <= expanded_y + expanded_h):
                     self.delivered_tables.add(i)
-                    reward += 15
-
+                    reward += 100  
         return reward
 
     def render(self):
         if self.render_mode != "human":
             return
-
-        # Prevents frame freezing
         if pygame.get_init():
             pygame.event.pump()
-
         if self.window is None:
             pygame.init()
             pygame.font.init()
