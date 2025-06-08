@@ -75,6 +75,16 @@ while running:
     if action is not None:
         obs, reward, done, truncated, info = env.step(action)
 
+        # Print sample of ray distances
+        num_rays = env.num_cone_rays
+        ray_start = 2 + len(env.tables)  # Start index of ray data
+        ray_data = obs[ray_start:ray_start + num_rays]
+        
+        # Show first, middle, and last ray distances
+        if num_rays > 0:
+            for ray_index in range(0, num_rays, max(1, num_rays // 30)):
+                print(f"Ray {ray_index}: {ray_data[ray_index]:.2f} units")
+
         if reward > 0:
             print(f"🎉 Positive reward: {reward:.2f}")
         elif reward < -1:
@@ -88,6 +98,8 @@ while running:
 
         if len(env.delivered_tables) > 0:
             print(f"📦 Delivered: {len(env.delivered_tables)}/{len(env.tables)} tables")
+
+        #print(env.ray_distance_dict)
 
     env.render()
     clock.tick(10)  # 10 FPS

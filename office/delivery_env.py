@@ -35,9 +35,15 @@ class DeliveryRobotEnv(gym.Env):
         self.show_obstacles = show_obstacles
         self.show_carpets = show_carpets
 
+        self.ray_config = {
+            'num_rays': 30,           # Number of rays to cast
+            'cone_width_deg': 45,     # Width of cone in degrees
+            'max_distance': 300,      # Maximum ray distance
+            'render_rays': 30,        # Number of rays for visualization (can be higher for smoother display)
+        }
+        self.num_cone_rays = self.ray_config['num_rays']
         self.use_flashlight = use_flashlight
-        # Track last movement direction in radians - default facing "down"
-        self.last_move_dir = math.pi / 2
+        self.last_move_dir = math.pi / 2 # Track last movement direction in radians - default facing "down"
 
         # Load configuration
         if custom_config:
@@ -77,9 +83,10 @@ class DeliveryRobotEnv(gym.Env):
         }
         self.action_space = spaces.Discrete(len(self.directions))
 
+        # Observation space: [x, y, table_statuses..., ray_distances...]
         self.observation_space = spaces.Box(
-            low=np.array([0, 0] + [0] * len(self.tables) + [0, 0, 0, 0], dtype=np.float32),
-            high=np.array([self.width, self.height] + [1] * len(self.tables) + [1, 1, 1, 1], dtype=np.float32),
+            low=np.array([0, 0] + [0] * len(self.tables) + [0] * self.ray_config['num_rays'], dtype=np.float32),
+            high=np.array([self.width, self.height] + [1] * len(self.tables) + [1] * self.ray_config['num_rays'], dtype=np.float32),
             dtype=np.float32,
         )
 
@@ -140,68 +147,60 @@ class DeliveryRobotEnv(gym.Env):
     def _get_obs(self):
         # Returns coordinates and delivery status of tables
         status = [1 if i in self.delivered_tables else 0 for i in range(len(self.tables))]
-        # Get ray casting sensors (45° cone in front)
-        cone_sensors = self.get_cone_sensors(cone_width_deg=45, num_rays=60, max_distance=300)
-        # Combine: [x, y, table_statuses..., ray_sensors...]    
-        return np.array([self.robot_pos[0], self.robot_pos[1]] + status + cone_sensors, dtype=np.float32)
+        # Get ray distances (normalized to 0-1, 45° cone in front)
+        ray_distances = self.get_cone_ray_distances()
+        
+        # Combine: [x, y, table_statuses..., ray_distances...]
+        return np.array([self.robot_pos[0], self.robot_pos[1]] + status + ray_distances, dtype=np.float32)
 
-    def get_cone_sensors(self, cone_width_deg=45, num_rays=60, max_distance=600):
-        """Cast rays in a cone in front of robot and detect what they hit."""
+    def get_cone_ray_distances(self):
+        """Cast rays in a cone and return distance to nearest object for each ray."""
         px, py = float(self.robot_pos[0]), float(self.robot_pos[1])
         center_ang = self.last_move_dir
-        cone_rad = math.radians(cone_width_deg)
+        cone_rad = math.radians(self.ray_config['cone_width_deg'])
 
+        # Cast rays treating tables as solid objects
         pts, types = cast_cone_rays(
             robot_pos=(px, py),
-            wall_rects=self.walls,
+            wall_rects=self.walls + self.tables,  # Combine walls and tables
             circle_obstacles=self.obstacles,
             center_angle=center_ang,
             cone_width=cone_rad,
-            num_rays=num_rays,
-            max_distance=max_distance,
+            num_rays=self.ray_config['num_rays'],
+            max_distance=self.ray_config['max_distance'],
             robot_radius=self.robot_radius
         )
 
-        # Binary sensors: do we see each type of object?
-        see_table = 0
-        see_wall = 0
-        see_obstacle = 0
-        see_carpet = 0
-
+        # Calculate distances for each ray
+        ray_distances = []
         half_cone = cone_rad / 2
-        for i, hit_type in enumerate(types):
-            if hit_type == "wall":
-                see_wall = 1
-            elif hit_type == "circle":
-                see_obstacle = 1
-
-            # Check if ray passes through tables/carpets before hitting wall/obstacle
+        
+        for i in range(self.ray_config['num_rays']):
             ix, iy = pts[i]
-            t_hit = math.hypot(ix - px, iy - py) if hit_type in ("wall", "circle") else max_distance
-
-            ray_ang = center_ang - half_cone + i * (cone_rad / (num_rays - 1))
+            hit_type = types[i]
+            
+            # Distance to any hit (wall, table, or obstacle)
+            if hit_type in ("wall", "circle"):
+                dist = math.hypot(ix - px, iy - py)
+            else:
+                dist = self.ray_config['max_distance']
+            
+            # Check if ray passes through carpets (still transparent)
+            ray_ang = center_ang - half_cone + i * (cone_rad / (self.ray_config['num_rays'] - 1))
             dx = math.cos(ray_ang)
             dy = math.sin(ray_ang)
-
-            # Check table intersections
-            for (tx, ty, tw, th) in self.tables:
-                t_table = _intersect_ray_rect(px, py, dx, dy, tx, ty, tw, th)
-                if t_table is not None and 0 <= t_table < t_hit:
-                    see_table = 1
-                    break
-
-            # Check carpet intersections
+            
             for (cx, cy, cw, ch) in self.carpets:
                 t_carpet = _intersect_ray_rect(px, py, dx, dy, cx, cy, cw, ch)
-                if t_carpet is not None and 0 <= t_carpet < t_hit:
-                    see_carpet = 1
-                    break
-
-            # Early exit if all sensors triggered
-            if see_table and see_wall and see_obstacle and see_carpet:
-                break
-
-        return [see_table, see_wall, see_obstacle, see_carpet] 
+                if t_carpet is not None and 0 <= t_carpet < dist:
+                    dist = t_carpet
+            
+            # Normalize distance to [0, 1] range
+            normalized_dist = min(dist / self.ray_config['max_distance'], 1.0)
+            ray_distances.append(normalized_dist)
+        
+        self._last_ray_distances = ray_distances
+        return ray_distances
 
     def _check_collision(self, pos):
         x, y = pos
@@ -262,6 +261,24 @@ class DeliveryRobotEnv(gym.Env):
                     reward += 15
 
         return reward
+    
+    @property
+    def ray_distance_dict(self, scaled=True):
+        """Get the current ray distances as a dictionary for debugging/visualization."""
+        if not hasattr(self, '_last_ray_distances'):
+            return {}
+        
+        ray_dict = {}
+        for i, dist in enumerate(self._last_ray_distances):
+            if scaled:
+                # Scale to [0, 1] range
+                dist = min(dist / self.ray_config['max_distance'], 1.0)
+            else:
+                # Use raw distance
+                dist = max(0, min(dist, self.ray_config['max_distance']))
+            ray_dict[f"ray_{i}"] = dist * self.ray_config['max_distance']  # Use config
+        return ray_dict
+    
 
     def render(self):
         if self.render_mode != "human":
@@ -281,20 +298,18 @@ class DeliveryRobotEnv(gym.Env):
 
         px, py = float(self.robot_pos[0]), float(self.robot_pos[1])
         center_ang = self.last_move_dir
-        cone_rad = math.radians(45)
-        num_rays = 60
-        max_d = 600
+        cone_rad = math.radians(self.ray_config['cone_width_deg'])
 
         # Cast rays in front cone
         pts, _ = cast_cone_rays(
-            robot_pos=(px, py),
-            wall_rects=self.walls,
-            circle_obstacles=self.obstacles,
-            center_angle=center_ang,
-            cone_width=cone_rad,
-            num_rays=num_rays,
-            max_distance=max_d,
-            robot_radius=self.robot_radius
+        robot_pos=(px, py),
+        wall_rects=self.walls + self.tables,
+        circle_obstacles=self.obstacles,
+        center_angle=center_ang,
+        cone_width=cone_rad,
+        num_rays=self.ray_config['render_rays'],
+        max_distance=self.ray_config['max_distance'],
+        robot_radius=self.robot_radius
         )
 
         if self.use_flashlight:
