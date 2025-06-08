@@ -127,10 +127,10 @@ def train(args):
             next_obs, reward, terminated, truncated, _ = env.step(action_idx)
             done = terminated or truncated
 
-            # Store transition in replay buffer
+            # Store transition in agent's replay and goal buffers
             agent.store_transition(obs, action_idx, reward, next_obs, done)
 
-            # Learn immediately (if ready)
+            # Perform learning step if enough transitions are in the buffer
             if total_steps % 4 == 0 and agent._can_learn():
                 agent.learn()
 
@@ -164,15 +164,12 @@ def train(args):
             logger.info("Maximum episodes reached. Training finished.")
             break
 
-
-
     env.close()
     logger.info("Training complete.")
 
     if args.save_model_path:
         agent.save_model(args.save_model_path)
         logger.info(f"Model saved to {args.save_model_path}.")
-
 # ---------- Entry Point ----------
 if __name__ == "__main__":
     args = parse_args()
