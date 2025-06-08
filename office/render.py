@@ -125,13 +125,15 @@ def render_environment(env):
             # --- Delivery highlight for pending tables ---
             if i not in env.delivered_tables:
                 tx, ty, tw, th = table
-                margin = env.robot_radius
-                expanded_rect = pygame.Rect(
-                    tx - margin,
-                    ty - margin,
-                    tw + 2 * margin,
-                    th + 2 * margin
-                )
+                delivery_margin = env.robot_radius * 3
+
+                # Define the delivery zone rectangle
+                delivery_x = tx - delivery_margin
+                delivery_y = ty - delivery_margin
+                delivery_w = tw + 2 * delivery_margin
+                delivery_h = th + 2 * delivery_margin
+
+                expanded_rect = pygame.Rect(delivery_x, delivery_y, delivery_w, delivery_h)
 
                 highlight_surf = pygame.Surface((expanded_rect.width, expanded_rect.height), pygame.SRCALPHA)
                 pygame.draw.rect(highlight_surf, (0, 255, 0, 60), highlight_surf.get_rect())
@@ -150,13 +152,15 @@ def render_environment(env):
             # --- Delivery highlight for pending tables ---
             if i not in env.delivered_tables:
                 tx, ty, tw, th = table
-                margin = env.robot_radius
-                expanded_rect = pygame.Rect(
-                    tx - margin,
-                    ty - margin,
-                    tw + 2 * margin,
-                    th + 2 * margin
-                )
+                delivery_margin = env.robot_radius * 3
+
+                # Define the delivery zone rectangle
+                delivery_x = tx - delivery_margin
+                delivery_y = ty - delivery_margin
+                delivery_w = tw + 2 * delivery_margin
+                delivery_h = th + 2 * delivery_margin
+
+                expanded_rect = pygame.Rect(delivery_x, delivery_y, delivery_w, delivery_h)
 
                 highlight_surf = pygame.Surface((expanded_rect.width, expanded_rect.height), pygame.SRCALPHA)
                 pygame.draw.rect(highlight_surf, (0, 255, 0, 60), highlight_surf.get_rect())
