@@ -85,40 +85,50 @@ class DeliveryRobotEnv(gym.Env):
         self.consecutive_collisions = 0 # DELETE before submission if not needed
         self.step_count = 0
         self.delivered_tables = set()
+        self.action = None
+        self.angle = 0.0
         return self._get_obs(), {}
 
     def step(self, action):
         self.action = action
-        movement = (self.directions[self.action] * self.step_size).flatten()
+        self.angle = np.degrees(np.arctan2(self.directions[action][1], self.directions[action][0]))  # Update orientation
+        movement = self.directions[action] * self.step_size
+        proposed_pos = self.robot_pos + movement
 
-        new_pos = self.robot_pos + movement
-        new_pos = np.clip(
-            new_pos, [self.robot_radius] * 2, [self.width - self.robot_radius, self.height - self.robot_radius]
-        )
+        # Boundary check: block movement if out of bounds
+        hit_wall = False
+        new_pos = proposed_pos
+        if (proposed_pos[0] < self.robot_radius or
+            proposed_pos[0] > self.width - self.robot_radius or
+            proposed_pos[1] < self.robot_radius or
+            proposed_pos[1] > self.height - self.robot_radius):
+            new_pos = self.robot_pos  # Block movement
+            hit_wall = True
 
-        reward = -0.01   # Default step penalty
-        if not self._check_collision(new_pos):
+        reward = -0.01  # Small step penalty
+        if hit_wall:
+            reward -= 1.0  # Boundary penalty
+
+        if not hit_wall and not self._check_collision(new_pos):
             self.robot_pos = new_pos
             self.consecutive_collisions = 0  # Reset collision count on successful move
 
             if self._on_carpet():
-                reward -= 0.2
-
+                reward -= 0.1  # Reduced carpet penalty
             reward += self._check_table_delivery()
-        else:        
-            reward -= 1.0  # Collision penalty, non-consecutive
-            # Removed consecutive collision logic
+        else:
+            reward -= 1.0  # Collision penalty
 
-        done = len(self.delivered_tables) == len(self.tables)
-        # if done:
-        #     reward += 2000.0
-
-        reward = np.clip(reward, -50.0, 50.0) # Clip rewards to stabilise training
+        # Clip rewards to stabilize training
+        reward = np.clip(reward, -10.0, 10.0)
 
         self.total_reward += reward
         self.step_count += 1
 
-        return self._get_obs(), reward, done, False, {}
+        terminated = len(self.delivered_tables) == len(self.tables)
+        truncated = self.step_count >= self.max_steps
+
+        return self._get_obs(), reward, terminated, truncated, {}
 
     def _get_obs(self):
         # Returns coordinates and delivery status of tables
