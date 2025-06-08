@@ -38,7 +38,7 @@ class ReplayBuffer:
         Args:
             capacity (int): Maximum number of experiences to store in the buffer.
         """
-        self.buffer = deque(maxlen=10000) # Ensure capacity is an integer
+        self.buffer = deque(maxlen=5000) # Ensure capacity is an integer
 
     def add(self, state, action, reward, next_state, done):
         """
