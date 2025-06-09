@@ -20,7 +20,8 @@ def get_target_tables(config_name="simple", scale=0.8):
     configs = {
         "complex": _get_complex_tables,
         "simple": _get_simple_tables,
-        "open_office": _get_open_office_tables, 
+        "open_office": _get_open_office_tables,
+        "big_table": _get_big_table,
     }
     
     if config_name not in configs:
@@ -66,15 +67,24 @@ def _get_complex_tables():
         (710, 120, 80, 120),
         (480, 530, 240, 60),
     ]
-    
+
+########## For SIMPLE TABLES ##########
 def _get_simple_tables():
     """Simple configuration with just 1 table."""
     return [
         (600, 50, 150, 100),
     ]
 
+########## For OPEN OFFICE TABLES ##########
 def _get_open_office_tables():
     """Simple configuration with just 1 table."""
     return [
         (600, 50, 120, 80),
+    ]
+
+########## For BIG TABLE ##########
+def _get_big_table():
+    """Big table configuration."""
+    return [
+        (100, 0, 600, 600),
     ]

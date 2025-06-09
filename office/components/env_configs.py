@@ -55,6 +55,15 @@ CONFIGS = {
         people="open_office_simple",
         furniture="open_office_simple",
     ),
+
+    "big_table": EnvironmentConfig(
+        name="big_table",
+        walls="simple",
+        tables="big_table",
+        carpets="none",
+        people="none",
+        furniture="none",
+    ),
 }
 
 def get_config(name):
