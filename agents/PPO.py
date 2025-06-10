@@ -5,7 +5,7 @@ import torch.optim as optim
 
 
 class ActorCriticNetwork(nn.Module):
-    def __init__(self, input_dim, n_actions, hidden_size=128):
+    def __init__(self, input_dim, n_actions, hidden_size=16):
         super().__init__()
 
         self.shared = nn.Sequential(nn.Linear(input_dim, hidden_size), nn.ReLU(), nn.Linear(hidden_size, hidden_size), nn.ReLU())
@@ -98,8 +98,10 @@ class PPOAgent:
         returns = torch.tensor(returns, dtype=torch.float32).to(self.device)
         advantages = torch.tensor(advantages, dtype=torch.float32).to(self.device)
 
-        if normalize_advantage:  # Improve learning stability by normalizing advantages
+        if normalize_advantage:
             advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+            # Add return normalization too:
+            returns = (returns - returns.mean()) / (returns.std() + 1e-8)
 
         return returns, advantages
 
