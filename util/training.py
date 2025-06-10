@@ -1,90 +1,14 @@
-import numpy as np
 import torch
-import sys
-import random
-import os
-import logging
-from argparse import ArgumentParser
+import numpy as np
 from tqdm import tqdm
 
 from office.delivery_env import DeliveryRobotEnv
 from agents.PPO import PPOAgent
 from agents.DQN import DQNAgent
+from helpers import set_global_seed
 
-# ---------- Seed Setup ----------
-def set_global_seed(seed):
-    random.seed(seed)                 # Python built-in
-    np.random.seed(seed)             # NumPy
-    torch.manual_seed(seed)          # PyTorch CPU
-    torch.cuda.manual_seed_all(seed) # PyTorch GPU (if used)
-    os.environ["PYTHONHASHSEED"] = str(seed)  # For consistent hashing
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
 
-# ---------- Logging Setup ----------
-class TqdmLoggingHandler(logging.Handler):
-    def __init__(self, level=logging.NOTSET):
-        super().__init__(level)
-
-    def emit(self, record):
-        try:
-            msg = self.format(record)
-            tqdm.write(msg)
-            self.flush()
-        except Exception:
-            self.handleError(record)
-
-def setup_logger(log_level=logging.INFO, log_file="training.log"):
-    logger = logging.getLogger("trainer")
-    logger.setLevel(log_level)
-    if not logger.handlers:
-        formatter = logging.Formatter("[%(asctime)s] %(levelname)s: %(message)s", "%H:%M:%S")
-
-        console_handler = TqdmLoggingHandler()
-        console_handler.setFormatter(formatter)
-        logger.addHandler(console_handler)
-
-        file_handler = logging.FileHandler(log_file)
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
-
-    return logger
-
-# ---------- Argument Parsing ----------
-def parse_args(argv=None):
-    p = ArgumentParser(description="Unified PPO/DQN Training Script")
-
-    p.add_argument("--algo", choices=["ppo", "dqn"], required=True,
-                   help="Algorithm to train: 'ppo' or 'dqn'")
-
-    # Shared
-    p.add_argument("--render_mode", type=str, default=None)
-    p.add_argument("--n_actions", type=int, default=8)
-    p.add_argument("--gamma", type=float, default=0.995)
-    p.add_argument("--max_episodes", type=int, default=500)
-    p.add_argument("--max_episode_steps", type=int, default=512)
-    p.add_argument("--log_interval", type=int, default=5)
-    p.add_argument("--save_model_path", type=str, default=None)
-    p.add_argument("--seed", type=int, default=42)
-
-    # PPO-
-    p.add_argument("--eps_clip", type=float, default=0.3)
-    p.add_argument("--k_epochs", type=int, default=4)
-    p.add_argument("--batch_size", type=int, default=64)
-
-    # DQN
-    p.add_argument("--epsilon_start", type=float, default=1.0)
-    p.add_argument("--epsilon_min", type=float, default=0.01)
-    p.add_argument("--epsilon_decay", type=float, default=0.99)
-    p.add_argument("--alpha", type=float, default=1e-4)
-    p.add_argument("--buffer_size", type=int, default=int(1e5))
-    p.add_argument("--min_replay_size", type=int, default=int(1e5))
-    p.add_argument("--target_update_freq", type=int, default=int(5e4))
-    p.add_argument("--load_model_path", type=str, default=None)
-
-    return p.parse_args(argv)
-
-# ---------- PPO Training Loop ----------
+# ---------- PPO Training ----------
 def train_ppo(args, logger):
     set_global_seed(args.seed)
     render_mode = args.render_mode if args.render_mode in [None, "human", "rgb_array"] else None
@@ -157,7 +81,8 @@ def train_ppo(args, logger):
         agent.save_model(args.save_model_path)
         logger.info(f"PPO model saved to {args.save_model_path}")
 
-# ---------- DQN Training Loop ----------
+
+# ---------- DQN Training ----------
 def train_dqn(args, logger):
     set_global_seed(args.seed)
     render_mode = args.render_mode if args.render_mode in [None, "human", "rgb_array"] else None
@@ -251,19 +176,3 @@ def train_dqn(args, logger):
     if args.save_model_path:
         agent.save_model(args.save_model_path)
         logger.info(f"DQN model saved to {args.save_model_path}")
-
-# ---------- Entry Point ----------
-if __name__ == "__main__":
-    args = parse_args()
-    logger = setup_logger(log_level=logging.DEBUG)
-
-    logger.info(f"Training started with algorithm: {args.algo}")
-    logger.info(f"Args: {args}")
-
-    if args.algo == "ppo":
-        train_ppo(args, logger)
-    elif args.algo == "dqn":
-        train_dqn(args, logger)
-    else:
-        logger.error(f"Unknown algorithm specified: {args.algo}")
-        sys.exit(1)
