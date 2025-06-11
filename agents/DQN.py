@@ -182,7 +182,7 @@ class DQNAgent:
             return None  # Not enough samples to learn
 
         # Split batch: sample from goal buffer and main buffer
-        goal_fraction = 0.25  # 25% of batch from goal-reaching transitions
+        goal_fraction = 0.4 # 25% of batch from goal-reaching transitions
         n_goal = int(self.batch_size * goal_fraction)
         n_main = self.batch_size - n_goal
 
