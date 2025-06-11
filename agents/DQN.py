@@ -11,20 +11,20 @@ class QNetwork(nn.Module):
     """
     def __init__(self, input_dim, output_dim, size="small"):
         super().__init__()
-        if size=="small":
+        if size == "small":
             self.net = nn.Sequential(
                 nn.Linear(input_dim, 128), nn.ReLU(),
                 nn.Linear(128, 128), nn.ReLU(),
                 nn.Linear(128, output_dim)
             )
-        elif size=="large":
+        elif size == "large":
             self.net = nn.Sequential(
                 nn.Linear(input_dim, 256), nn.LayerNorm(256), nn.ReLU(),
                 nn.Linear(256, 256), nn.LayerNorm(256), nn.ReLU(),
                 nn.Linear(256, 128), nn.LayerNorm(128), nn.ReLU(),
                 nn.Linear(128, output_dim)
             )
-    
+
     def forward(self, x):
         return self.net(x)
 
@@ -38,7 +38,7 @@ class ReplayBuffer:
         Args:
             capacity (int): Maximum number of experiences to store in the buffer.
         """
-        self.buffer = deque(maxlen=10000) # Ensure capacity is an integer
+        self.buffer = deque(maxlen=capacity)
 
     def add(self, state, action, reward, next_state, done):
         """
@@ -66,10 +66,10 @@ class ReplayBuffer:
         # Convert numpy arrays to PyTorch tensors
         return (
             torch.tensor(states, dtype=torch.float32),
-            torch.tensor(actions, dtype=torch.int64).unsqueeze(1), # Actions are indices
+            torch.tensor(actions, dtype=torch.int64).unsqueeze(1),  # Actions are indices
             torch.tensor(rewards, dtype=torch.float32).unsqueeze(1),
             torch.tensor(next_states, dtype=torch.float32),
-            torch.tensor(dones, dtype=torch.float32).unsqueeze(1), # Dones as float for multiplication
+            torch.tensor(dones, dtype=torch.float32).unsqueeze(1),  # Dones as float for multiplication
         )
 
     def __len__(self):
@@ -85,9 +85,9 @@ class DQNAgent:
     Deep Q-Network Agent.
     """
     def __init__(self, obs_dim, n_actions, gamma, epsilon, epsilon_min,
-                epsilon_decay_rate, alpha, batch_size, buffer_size, 
-                min_replay_size, target_update_freq, device):
-
+                 epsilon_decay_rate, alpha, batch_size, buffer_size,
+                 min_replay_size, target_update_freq, device=None,
+                 qnet_size="small"):
         """
         Initialize the DQNAgent.
         Args:
@@ -103,6 +103,7 @@ class DQNAgent:
             min_replay_size (int): Minimum number of experiences in buffer before training starts.
             target_update_freq (int): Frequency (in frames) for updating the target network.
             device (torch.device, optional): Device to run the networks on (e.g., 'cuda' or 'cpu').
+            qnet_size (str): "small" or "large" architecture for the Q-network.
         """
         self.obs_dim = obs_dim
         self.n_actions = n_actions
@@ -120,17 +121,19 @@ class DQNAgent:
         print(f"Using device: {self.device}")
 
         # Initialize Q-Network, Target Q-Network
-        self.q_net = QNetwork(obs_dim, n_actions).to(self.device)
-        self.target_q_net = QNetwork(obs_dim, n_actions).to(self.device)
-        self.target_q_net.load_state_dict(self.q_net.state_dict()) # Initialize target with Q-net weights
-        self.target_q_net.eval() # Target network is not trained directly
+        self.q_net = QNetwork(obs_dim, n_actions, size=qnet_size).to(self.device)
+        self.target_q_net = QNetwork(obs_dim, n_actions, size=qnet_size).to(self.device)
+        self.target_q_net.load_state_dict(self.q_net.state_dict())  # Initialize target with Q-net weights
+        self.target_q_net.eval()  # Target network is not trained directly
 
         # Optimizer
         self.optimizer = optim.Adam(self.q_net.parameters(), lr=self.alpha)
 
-        # Replay Buffer
+        # Replay Buffers
         self.replay_buffer = ReplayBuffer(self.buffer_size)
-        self.learn_step_counter = 0 # To track when to update target network
+        self.goal_buffer = ReplayBuffer(10000)  # Buffer for positive-reward transitions
+
+        self.learn_step_counter = 0  # To track when to update target network
 
     def select_action(self, state, explore=True):
         """
@@ -148,12 +151,11 @@ class DQNAgent:
             with torch.no_grad():  # No gradients required for action selection
                 state_tensor = torch.tensor(state, dtype=torch.float32).unsqueeze(0).to(self.device)
                 q_values = self.q_net(state_tensor)
-                action = torch.argmax(q_values, dim=1).item()  # Get action with max Q-value
-            return action
+                return torch.argmax(q_values, dim=1).item()
 
     def store_transition(self, state, action, reward, next_state, done):
         """
-        Store an experience transition in the replay buffer.
+        Store an experience transition in the replay buffer and goal buffer if reward is positive.
         Args:
             state (np.ndarray): Current state.
             action (int): Action taken.
@@ -162,40 +164,50 @@ class DQNAgent:
             done (bool): Whether the episode has ended.
         """
         self.replay_buffer.add(state, action, reward, next_state, done)
+        if reward > 0:
+            self.goal_buffer.add(state, action, reward, next_state, done)
 
     def _can_learn(self):
-        """Check if the agent has enough samples in the buffer to learn."""
+        """
+        Check if the agent has enough samples in the buffer to learn.
+        """
         return len(self.replay_buffer) >= self.min_replay_size
 
     def learn(self):
         """
-        Train the Q-Network using a batch of experiences from the replay buffer.
-        This method should be called after `store_transition` and when `_can_learn` is true.
+        Train the Q-Network using a batch of experiences from both the main replay buffer
+        and the goal buffer to reinforce successful behavior.
         """
         if not self._can_learn():
             return None  # Not enough samples to learn
 
-        # Sample a batch from the replay buffer
-        states, actions, rewards, next_states, dones = self.replay_buffer.sample(self.batch_size)
-        
-        # Move batch to the selected device
-        states = states.to(self.device)
-        actions = actions.to(self.device)
-        rewards = rewards.to(self.device)
-        next_states = next_states.to(self.device)
-        dones = dones.to(self.device)
+        # Split batch: sample from goal buffer and main buffer
+        goal_fraction = 0.25  # 25% of batch from goal-reaching transitions
+        n_goal = int(self.batch_size * goal_fraction)
+        n_main = self.batch_size - n_goal
+
+        # Sample with fallback if goal_buffer doesn't have enough data
+        if len(self.goal_buffer) >= n_goal:
+            goal_samples = self.goal_buffer.sample(n_goal)
+        else:
+            goal_samples = self.replay_buffer.sample(n_goal)
+
+        main_samples = self.replay_buffer.sample(n_main)
+
+        # Concatenate samples
+        states = torch.cat([goal_samples[0], main_samples[0]], dim=0).to(self.device)
+        actions = torch.cat([goal_samples[1], main_samples[1]], dim=0).to(self.device)
+        rewards = torch.cat([goal_samples[2], main_samples[2]], dim=0).to(self.device)
+        next_states = torch.cat([goal_samples[3], main_samples[3]], dim=0).to(self.device)
+        dones = torch.cat([goal_samples[4], main_samples[4]], dim=0).to(self.device)
 
         # Calculate target Q-values
-        with torch.no_grad(): # Target network calculations don't require gradients
-            # Get Q-values for next states from the target network
+        with torch.no_grad():  # Target network calculations don't require gradients
             next_q_values_target = self.target_q_net(next_states)
-            # Select the best action's Q-value (max Q-value)
             max_next_q_values = next_q_values_target.max(1, keepdim=True)[0]
-            # Calculate the target Q-value using the Bellman equation
             target_q = rewards + self.gamma * max_next_q_values * (1 - dones)
 
         # Get current Q-values for the chosen actions from the main Q-network
-        # Gather the Q-values corresponding to the actions taken
         current_q = self.q_net(states).gather(1, actions)
 
         # Calculate loss
@@ -210,9 +222,8 @@ class DQNAgent:
         # Periodically update the target network
         if self.learn_step_counter % self.target_update_freq == 0:
             self.update_target_network()
-        
-        return loss.item()
 
+        return loss.item()
 
     def update_target_network(self):
         """
@@ -229,16 +240,21 @@ class DQNAgent:
 
     def set_epsilon_for_eval(self, eval_epsilon: float = 0.0):
         """
-        Sets epsilon to (almost) purely greedy."""
+        Sets epsilon to (almost) purely greedy.
+        """
         self.epsilon = eval_epsilon
 
     def load_model(self, path):
-        """Loads the Q-network weights from a file."""
+        """
+        Loads the Q-network weights from a file.
+        """
         self.q_net.load_state_dict(torch.load(path, map_location=self.device))
-        self.update_target_network() # Ensure target network is also updated
+        self.update_target_network()  # Ensure target network is also updated
         print(f"Model loaded from {path}")
 
     def save_model(self, path):
-        """Saves the Q-network weights to a file."""
+        """
+        Saves the Q-network weights to a file.
+        """
         torch.save(self.q_net.state_dict(), path)
         print(f"Model saved to {path}")
