@@ -150,7 +150,7 @@ def render_environment(env):
             # --- Delivery highlight for pending tables ---
             if i not in env.delivered_tables:
                 tx, ty, tw, th = table
-                margin = env.robot_radius
+                margin = env.robot_radius * 4
                 expanded_rect = pygame.Rect(
                     tx - margin,
                     ty - margin,
