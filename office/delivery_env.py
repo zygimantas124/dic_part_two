@@ -23,146 +23,130 @@ from office.raycasting import (
 class DeliveryRobotEnv(gym.Env):
     metadata = {"render_modes": ["human"], "render_fps": 60}
 
-    def __init__(self, config="simple", render_mode=None, show_walls=True, show_obstacles=True, show_carpets=True, custom_config=None, use_flashlight=False):
+    def __init__(self, config="simple", render_mode=None, show_walls=True, show_obstacles=True, show_carpets=True, custom_config=None, use_flashlight=False, use_raycasting=True):
+        # Environment dimensions
         self.width = 800
         self.height = 600
         self.robot_radius = 10
         self.step_size = 10.0
         self.reward = 0.0
-        self.action = None
 
-        self.show_walls = show_walls
-        self.show_obstacles = show_obstacles
-        self.show_carpets = show_carpets
+        # Orientation tracking in radians
+        self.angle_rad = math.pi / 2  # Default: facing down
 
-        self.ray_config = {
-            'num_rays': 30,           # Number of rays to cast
-            'cone_width_deg': 45,     # Width of cone in degrees
-            'max_distance': 300,      # Maximum ray distance
-            'render_rays': 30,        # Number of rays for visualization (can be higher for smoother display)
-        }
-        self.num_cone_rays = self.ray_config['num_rays']
+        # Toggle raycasting and flashlight rendering
         self.use_flashlight = use_flashlight
-        self.last_move_dir = math.pi / 2 # Track last movement direction in radians - default facing "down"
+        self.use_raycasting = use_raycasting
 
-        # Load configuration
-        if custom_config:
-            cfg = custom_config
-        else:
-            cfg = get_config(config)
-
-        # Load components based on configuration
-        self.walls = get_walls(cfg.walls) if show_walls else []
-        self.tables = get_target_tables(cfg.tables, scale=cfg.table_scale)
-        self.carpets = get_carpets(cfg.carpets) if show_carpets else []
-
-        obstacles = []
-        if show_obstacles:
-            obstacles.extend(get_people(cfg.people))
-            obstacles.extend(get_furniture(cfg.furniture))
-        self.obstacles = obstacles
-
-        # Use configuration's start_pos if provided
-        if cfg.start_pos:
-            self.start_pos = np.array(cfg.start_pos)
-        else:
-            self.start_pos = np.array([100, 500])  # default
-
-        self.robot_pos = self.start_pos.copy()
-        self.delivered_tables = set()
-
-        self.directions = {
-            0: np.array([0, -1]),  # Up
-            1: np.array([0, 1]),  # Down
-            2: np.array([-1, 0]),  # Left
-            3: np.array([1, 0]),  # Right
-            4: np.array([-1, -1]),  # Up-Left
-            5: np.array([1, -1]),  # Up-Right
-            6: np.array([-1, 1]),  # Down-Left
-            7: np.array([1, 1]),  # Down-Right
+        # Raycasting configuration
+        self.ray_config = {
+            'num_rays': 30,
+            'cone_width_deg': 45,
+            'max_distance': 300,
+            'render_rays': 30
         }
-        self.action_space = spaces.Discrete(len(self.directions))
 
-        # Observation space: [x, y, table_statuses..., ray_distances...]
-        self.observation_space = spaces.Box(
-            low=np.array([0, 0] + [0] * len(self.tables) + [0] * self.ray_config['num_rays'], dtype=np.float32),
-            high=np.array([self.width, self.height] + [1] * len(self.tables) + [1] * self.ray_config['num_rays'], dtype=np.float32),
-            dtype=np.float32,
-        )
-
+        # Rendering setup
         self.render_mode = render_mode
         self.window = None
         self.clock = None
         self.font = None
+
+        # Visual and physical object flags
+        self.show_walls = show_walls
+        self.show_obstacles = show_obstacles
+        self.show_carpets = show_carpets
+
+        # Load environment configuration
+        cfg = custom_config if custom_config else get_config(config)
+        self.walls = get_walls(cfg.walls) if show_walls else []
+        self.tables = get_target_tables(cfg.tables, scale=cfg.table_scale)
+        self.carpets = get_carpets(cfg.carpets) if show_carpets else []
+
+        self.obstacles = []
+        if show_obstacles:
+            self.obstacles.extend(get_people(cfg.people))
+            self.obstacles.extend(get_furniture(cfg.furniture))
+
+        # Robot starting position
+        self.start_pos = np.array(cfg.start_pos if cfg.start_pos else [100, 500], dtype=np.float32)
+        self.robot_pos = self.start_pos.copy()
+        self.delivered_tables = set()
+
+        # Angular movement setup using 8 directions
+        self.n_directions = 8
+        angles = np.linspace(0, 2 * math.pi, self.n_directions, endpoint=False)
+        self.directions = np.array([[math.cos(a), math.sin(a)] for a in angles], dtype=np.float32)
+        self.action_space = spaces.Discrete(self.n_directions)
+
+        # Observation space: position, orientation, table statuses, (optional) ray distances
+        obs_dim = 4 + len(self.tables)  # x, y, cos(angle), sin(angle), table status
+        if self.use_raycasting:
+            obs_dim += self.ray_config['num_rays']
+
+        self.observation_space = spaces.Box(
+            low=np.full(obs_dim, 0.0, dtype=np.float32),
+            high=np.full(obs_dim, 1.0, dtype=np.float32),
+            dtype=np.float32
+        )
+
         self.total_reward = 0.0
         self.step_count = 0
 
     def reset(self, seed=0, options=None):
         super().reset(seed=seed)
         self.robot_pos = self.start_pos.copy()
+        self.angle_rad = math.pi / 2
         self.total_reward = 0.0
-        self.consecutive_collisions = 0 # DELETE before submission if not needed
         self.step_count = 0
         self.delivered_tables = set()
         return self._get_obs(), {}
 
     def step(self, action):
-        self.action = action
-        movement = (self.directions[self.action] * self.step_size).flatten()
+        # Apply movement based on discrete angular direction
+        movement = self.directions[action] * self.step_size
+        self.angle_rad = math.atan2(movement[1], movement[0])
+        new_pos = np.clip(self.robot_pos + movement, [self.robot_radius] * 2, [self.width - self.robot_radius, self.height - self.robot_radius])
 
-        # Track movement direction for ray casting
-        dx, dy = float(movement[0]), float(movement[1])
-        if abs(dx) > 1e-6 or abs(dy) > 1e-6:
-            self.last_move_dir = math.atan2(dy, dx)
-
-        new_pos = self.robot_pos + movement
-        new_pos = np.clip(
-            new_pos, [self.robot_radius] * 2, [self.width - self.robot_radius, self.height - self.robot_radius]
-        )
-
-        reward = -0.01   # Default step penalty
+        reward = -0.01  # Step penalty
         if not self._check_collision(new_pos):
             self.robot_pos = new_pos
-            self.consecutive_collisions = 0  # Reset collision count on successful move
-
             if self._on_carpet():
                 reward -= 0.2
-
             reward += self._check_table_delivery()
-        else:        
-            reward -= 1.0  # Collision penalty, non-consecutive
-            # Removed consecutive collision logic
-
-        done = len(self.delivered_tables) == len(self.tables)
-        # if done:
-        #     reward += 2000.0
-
-        reward = np.clip(reward, -50.0, 50.0) # Clip rewards to stabilise training
+        else:
+            reward -= 1.0  # Collision penalty
 
         self.total_reward += reward
         self.step_count += 1
+        done = len(self.delivered_tables) == len(self.tables)
 
-        return self._get_obs(), reward, done, False, {}
+        return self._get_obs(), np.clip(reward, -50, 50), done, False, {}
 
     def _get_obs(self):
-        # Returns coordinates and delivery status of tables
+        # Position + orientation
+        obs = [self.robot_pos[0] / self.width, self.robot_pos[1] / self.height,
+               math.cos(self.angle_rad), math.sin(self.angle_rad)]
+
+        # Table delivery statuses
         status = [1 if i in self.delivered_tables else 0 for i in range(len(self.tables))]
-        # Get ray distances (normalized to 0-1, 45° cone in front)
-        ray_distances = self.get_cone_ray_distances()
-        
-        # Combine: [x, y, table_statuses..., ray_distances...]
-        return np.array([self.robot_pos[0], self.robot_pos[1]] + status + ray_distances, dtype=np.float32)
+        obs.extend(status)
+
+        # Add ray distances if enabled
+        if self.use_raycasting:
+            obs.extend(self.get_cone_ray_distances())
+
+        return np.array(obs, dtype=np.float32)
 
     def get_cone_ray_distances(self):
-        """Cast rays in a cone and return distance to nearest object for each ray."""
+        """Cast rays in a cone and return normalized distances to nearest obstacles."""
         px, py = float(self.robot_pos[0]), float(self.robot_pos[1])
-        center_ang = self.last_move_dir
+        center_ang = self.angle_rad
         cone_rad = math.radians(self.ray_config['cone_width_deg'])
 
-        # Cast rays treating tables as solid objects
         pts, types = cast_cone_rays(
             robot_pos=(px, py),
-            wall_rects=self.walls + self.tables,  # Combine walls and tables
+            wall_rects=self.walls + self.tables,
             circle_obstacles=self.obstacles,
             center_angle=center_ang,
             cone_width=cone_rad,
@@ -171,97 +155,111 @@ class DeliveryRobotEnv(gym.Env):
             robot_radius=self.robot_radius
         )
 
-        # Calculate distances for each ray
         ray_distances = []
         half_cone = cone_rad / 2
-        
-        for i in range(self.ray_config['num_rays']):
-            ix, iy = pts[i]
-            hit_type = types[i]
-            
-            # Distance to any hit (wall, table, or obstacle)
-            if hit_type in ("wall", "circle"):
-                dist = math.hypot(ix - px, iy - py)
-            else:
-                dist = self.ray_config['max_distance']
-            
-            # Check if ray passes through carpets (still transparent)
+        for i, (ix, iy) in enumerate(pts):
+            dist = math.hypot(ix - px, iy - py) if types[i] in ("wall", "circle") else self.ray_config['max_distance']
             ray_ang = center_ang - half_cone + i * (cone_rad / (self.ray_config['num_rays'] - 1))
-            dx = math.cos(ray_ang)
-            dy = math.sin(ray_ang)
-            
+            dx, dy = math.cos(ray_ang), math.sin(ray_ang)
             for (cx, cy, cw, ch) in self.carpets:
-                t_carpet = _intersect_ray_rect(px, py, dx, dy, cx, cy, cw, ch)
-                if t_carpet is not None and 0 <= t_carpet < dist:
-                    dist = t_carpet
-            
-            # Normalize distance to [0, 1] range
-            normalized_dist = min(dist / self.ray_config['max_distance'], 1.0)
-            ray_distances.append(normalized_dist)
-        
+                t = _intersect_ray_rect(px, py, dx, dy, cx, cy, cw, ch)
+                if t is not None and 0 <= t < dist:
+                    dist = t
+            ray_distances.append(min(dist / self.ray_config['max_distance'], 1.0))
+
         self._last_ray_distances = ray_distances
         return ray_distances
 
     def _check_collision(self, pos):
+        """Check if the given position collides with walls, obstacles, or tables."""
         x, y = pos
-        # Check for walls
-        for wall_x, wall_y, wall_w, wall_h in self.walls:
-            if (
-                wall_x - self.robot_radius <= x <= wall_x + wall_w + self.robot_radius
-                and wall_y - self.robot_radius <= y <= wall_y + wall_h + self.robot_radius
-            ):
+        for wx, wy, ww, wh in self.walls:
+            if wx - self.robot_radius <= x <= wx + ww + self.robot_radius and wy - self.robot_radius <= y <= wy + wh + self.robot_radius:
                 return True
-            
-        # Check for obstacles
-        for obs_x, obs_y, obs_r in self.obstacles:
-            if np.linalg.norm(pos - np.array([obs_x, obs_y])) < obs_r + self.robot_radius:
+        for ox, oy, orad in self.obstacles:
+            if np.linalg.norm(pos - np.array([ox, oy])) < orad + self.robot_radius:
                 return True
-            
-        #Check table collisions (with reduced collision area to allow delivery)
-        collision_margin = self.robot_radius * 1  #larger means more lenient delivery area
         for tx, ty, tw, th in self.tables:
-            collision_x = tx + collision_margin
-            collision_y = ty + collision_margin
-            collision_w = tw - 2 * collision_margin
-            collision_h = th - 2 * collision_margin
-        
-            # Check if the reduced area is still positive
-            if collision_w > 0 and collision_h > 0:
-                if (
-                    collision_x - self.robot_radius <= x <= collision_x + collision_w + self.robot_radius
-                    and collision_y - self.robot_radius <= y <= collision_y + collision_h + self.robot_radius
-                ):
-                    return True
-
+            m = self.robot_radius
+            if (tx + m <= x <= tx + tw - m) and (ty + m <= y <= ty + th - m):
+                return True
         return False
 
     def _on_carpet(self):
+        """Check whether the robot is currently on a carpet."""
         x, y = self.robot_pos
-        for cx, cy, cw, ch in self.carpets:
-            if cx <= x <= cx + cw and cy <= y <= cy + ch:
-                return True
-        return False
+        return any(cx <= x <= cx + cw and cy <= y <= cy + ch for cx, cy, cw, ch in self.carpets)
 
     def _check_table_delivery(self):
-
+        """Check if the robot is within delivery range of any table."""
         reward = 0
+        margin = self.robot_radius * 2
         for i, (tx, ty, tw, th) in enumerate(self.tables):
             if i not in self.delivered_tables:
                 rx, ry = self.robot_pos
-
-                # Expand the table area by robot radius
-                expanded_x = tx - self.robot_radius
-                expanded_y = ty - self.robot_radius
-                expanded_w = tw + 2 * self.robot_radius
-                expanded_h = th + 2 * self.robot_radius
-
-                # Check if robot center is inside the expanded rectangle
-                if (expanded_x <= rx <= expanded_x + expanded_w) and (expanded_y <= ry <= expanded_y + expanded_h):
+                if (tx - margin <= rx <= tx + tw + margin) and (ty - margin <= ry <= ty + th + margin):
                     self.delivered_tables.add(i)
                     reward += 15
-
         return reward
-    
+
+    def render(self):
+        """Render the environment and optionally visualize rays."""
+        if self.render_mode != "human":
+            return
+        if pygame.get_init():
+            pygame.event.pump()
+        if self.window is None:
+            pygame.init()
+            pygame.font.init()
+            self.window = pygame.display.set_mode((self.width, self.height))
+            self.clock = pygame.time.Clock()
+            self.font = pygame.font.Font(None, 24)
+
+        render_environment(self)
+
+        if not self.use_raycasting:
+            pygame.display.flip()
+            self.clock.tick(self.metadata["render_fps"])
+            return
+
+        # Visualize rays
+        px, py = self.robot_pos
+        center_ang = self.angle_rad
+        cone_rad = math.radians(self.ray_config['cone_width_deg'])
+
+        pts, _ = cast_cone_rays(
+            robot_pos=(px, py),
+            wall_rects=self.walls + self.tables,
+            circle_obstacles=self.obstacles,
+            center_angle=center_ang,
+            cone_width=cone_rad,
+            num_rays=self.ray_config['render_rays'],
+            max_distance=self.ray_config['max_distance'],
+            robot_radius=self.robot_radius
+        )
+
+        if self.use_flashlight:
+            poly_pts = [(int(ix), int(iy)) for (ix, iy) in pts]
+            overlay = pygame.Surface((self.width, self.height), flags=pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 200))
+            if poly_pts:
+                pygame.draw.polygon(overlay, (0, 0, 0, 0), poly_pts)
+                pygame.draw.polygon(self.window, (255, 255, 200), poly_pts)
+            self.window.blit(overlay, (0, 0))
+        else:
+            for (ix, iy) in pts:
+                pygame.draw.line(self.window, (200, 200, 80), (int(px), int(py)), (int(ix), int(iy)), 1)
+
+        pygame.display.flip()
+        self.clock.tick(self.metadata["render_fps"])
+
+    def close(self):
+        """Close the rendering window and cleanup pygame."""
+        if self.window:
+            pygame.quit()
+            pygame.font.quit()
+            self.window = None
+
     @property
     def ray_distance_dict(self, scaled=True):
         """Get the current ray distances as a dictionary for debugging/visualization."""
@@ -278,67 +276,3 @@ class DeliveryRobotEnv(gym.Env):
                 dist = max(0, min(dist, self.ray_config['max_distance']))
             ray_dict[f"ray_{i}"] = dist * self.ray_config['max_distance']  # Use config
         return ray_dict
-    
-
-    def render(self):
-        if self.render_mode != "human":
-            return
-
-        # Prevents frame freezing
-        if pygame.get_init():
-            pygame.event.pump()
-
-        if self.window is None:
-            pygame.init()
-            pygame.font.init()
-            self.window = pygame.display.set_mode((self.width, self.height))
-            self.clock = pygame.time.Clock()
-            self.font = pygame.font.Font(None, 24)
-        render_environment(self)
-
-        px, py = float(self.robot_pos[0]), float(self.robot_pos[1])
-        center_ang = self.last_move_dir
-        cone_rad = math.radians(self.ray_config['cone_width_deg'])
-
-        # Cast rays in front cone
-        pts, _ = cast_cone_rays(
-        robot_pos=(px, py),
-        wall_rects=self.walls + self.tables,
-        circle_obstacles=self.obstacles,
-        center_angle=center_ang,
-        cone_width=cone_rad,
-        num_rays=self.ray_config['render_rays'],
-        max_distance=self.ray_config['max_distance'],
-        robot_radius=self.robot_radius
-        )
-
-        if self.use_flashlight:
-            # Flashlight mode: filled polygon with darkness overlay
-            poly_pts = [(int(ix), int(iy)) for (ix, iy) in pts]
-            if poly_pts:
-                pygame.draw.polygon(self.window, (255, 255, 220), poly_pts)
-
-            overlay = pygame.Surface((self.width, self.height), flags=pygame.SRCALPHA)
-            overlay.fill((0, 0, 0, 200))
-            if poly_pts:
-                pygame.draw.polygon(overlay, (0, 0, 0, 0), poly_pts)
-            self.window.blit(overlay, (0, 0))
-        else:
-            # Ray lines mode: draw individual rays
-            for (ix, iy) in pts:
-                pygame.draw.line(
-                    self.window,
-                    (200, 200, 80),
-                    (int(px), int(py)),
-                    (int(ix), int(iy)),
-                    1
-                )
-
-        pygame.display.flip()
-        self.clock.tick(self.metadata["render_fps"])
-
-    def close(self):
-        if self.window:
-            pygame.quit()
-            pygame.font.quit()
-            self.window = None
