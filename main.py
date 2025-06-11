@@ -1,8 +1,8 @@
 import sys
 import logging
 
-from helpers import parse_args, setup_logger
-from trainers import train_ppo, train_dqn
+from util.helpers import parse_args, setup_logger
+from util.training import train_ppo, train_dqn
 
 
 # ---------- Entry Point ----------

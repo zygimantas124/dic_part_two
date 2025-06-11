@@ -5,7 +5,7 @@ from tqdm import tqdm
 from office.delivery_env import DeliveryRobotEnv
 from agents.PPO import PPOAgent
 from agents.DQN import DQNAgent
-from helpers import set_global_seed
+from util.helpers import set_global_seed
 
 
 # ---------- PPO Training ----------
