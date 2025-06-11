@@ -72,7 +72,10 @@ def run_episode(env, agent, args, logger, episode, total_steps=0):
 
         # Action selection
         action_data = agent.select_action(obs)
-        action = action_data[0] if args.algo == "ppo" else action_data
+        if args.algo == "ppo":
+            action, log_prob, value = action_data
+        else:
+            action = action_data
 
         # Environment step
         next_obs, reward, terminated, truncated, _ = env.step(action)
@@ -80,9 +83,9 @@ def run_episode(env, agent, args, logger, episode, total_steps=0):
 
         # Store transition
         if args.algo == "ppo":
-            action, log_prob, value = action_data
             agent.store_transition(obs, action, log_prob, reward, done, value)
-        else:  # dqn
+        else:  # DQN
+            # DQNAgent internally handles adding to both buffers (goal and replay)
             agent.store_transition(obs, action, reward, next_obs, done)
 
         # Learning step (DQN learns every 4 steps if possible)
@@ -140,7 +143,7 @@ def train(args, logger):
         episode_reward, episode_steps, total_steps = run_episode(env, agent, args, logger, episode, total_steps)
 
         all_episode_rewards.append(episode_reward)
-        if args.algo == "dqn" and episode > 20:
+        if args.algo == "dqn" and episode > 50:
             agent.decay_epsilon_multiplicative()
 
         log_progress(args, episode, all_episode_rewards, total_steps, agent, logger)
