@@ -131,7 +131,7 @@ class DQNAgent:
 
         # Replay Buffers
         self.replay_buffer = ReplayBuffer(self.buffer_size)
-        self.goal_buffer = ReplayBuffer(10000)  # Buffer for positive-reward transitions
+        self.goal_buffer = ReplayBuffer(50000)  # Buffer for positive-reward transitions
 
         self.learn_step_counter = 0  # To track when to update target network
 
