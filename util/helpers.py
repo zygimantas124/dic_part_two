@@ -11,6 +11,8 @@ from tqdm import tqdm
 # ---------- Argument Parsing ----------
 def parse_args(argv=None):
     p = ArgumentParser(description="Unified PPO/DQN Training Script")
+    p.add_argument("--device", type=str, choices=["cpu", "cuda"], default="auto",
+                help="Device to use for training (cpu or cuda). If not set, automatically selects CUDA if available.")
 
     p.add_argument("--algo", choices=["ppo", "dqn"], required=True,
                    help="Algorithm to train: 'ppo' or 'dqn'")

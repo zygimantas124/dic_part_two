@@ -22,7 +22,7 @@ def train_ppo(args, logger):
     )
 
     obs_dim = env.observation_space.shape[0]
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = args.device
 
     agent = PPOAgent(
         obs_dim=obs_dim,
@@ -96,7 +96,7 @@ def train_dqn(args, logger):
     )
 
     obs_dim = env.observation_space.shape[0]
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = args.device
 
     agent = DQNAgent(
         obs_dim=obs_dim,
