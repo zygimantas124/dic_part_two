@@ -3,7 +3,6 @@ import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
 
-# does not work if starting outside of office
 from office.render import render_environment
 from office.components.tables import get_target_tables
 from office.components.obstacles import get_carpets, get_people, get_furniture
@@ -23,7 +22,7 @@ from office.raycasting import (
 class DeliveryRobotEnv(gym.Env):
     metadata = {"render_modes": ["human"], "render_fps": 60}
 
-    def __init__(self, config="simple", render_mode=None, show_walls=True, show_obstacles=True, show_carpets=True, custom_config=None, use_flashlight=False, use_raycasting=True):
+    def __init__(self, config="simple", render_mode=None, show_walls=True, show_obstacles=True, show_carpets=True, custom_config=None, use_flashlight=False, use_raycasting=False):
         # Environment dimensions
         self.width = 800
         self.height = 600
@@ -106,22 +105,30 @@ class DeliveryRobotEnv(gym.Env):
         # Apply movement based on discrete angular direction
         movement = self.directions[action] * self.step_size
         self.angle_rad = math.atan2(movement[1], movement[0])
-        new_pos = np.clip(self.robot_pos + movement, [self.robot_radius] * 2, [self.width - self.robot_radius, self.height - self.robot_radius])
+        proposed_pos = self.robot_pos + movement
+
+        # Check if proposed position is out of bounds
+        hit_boundary = (
+            proposed_pos[0] < self.robot_radius or
+            proposed_pos[0] > self.width - self.robot_radius or
+            proposed_pos[1] < self.robot_radius or
+            proposed_pos[1] > self.height - self.robot_radius
+        )
 
         reward = -0.01  # Step penalty
-        if not self._check_collision(new_pos):
-            self.robot_pos = new_pos
+        if hit_boundary or self._check_collision(proposed_pos):
+            reward -= 1.0  # Penalty for hitting boundary or collision
+        else:
+            self.robot_pos = proposed_pos
             if self._on_carpet():
                 reward -= 0.2
             reward += self._check_table_delivery()
-        else:
-            reward -= 1.0  # Collision penalty
 
         self.total_reward += reward
         self.step_count += 1
         done = len(self.delivered_tables) == len(self.tables)
 
-        return self._get_obs(), np.clip(reward, -50, 50), done, False, {}
+        return self._get_obs(), reward, done, False, {}
 
     def _get_obs(self):
         # Position + orientation
@@ -193,13 +200,13 @@ class DeliveryRobotEnv(gym.Env):
     def _check_table_delivery(self):
         """Check if the robot is within delivery range of any table."""
         reward = 0
-        margin = self.robot_radius * 2
+        margin = self.robot_radius * 4
         for i, (tx, ty, tw, th) in enumerate(self.tables):
             if i not in self.delivered_tables:
                 rx, ry = self.robot_pos
                 if (tx - margin <= rx <= tx + tw + margin) and (ty - margin <= ry <= ty + th + margin):
                     self.delivered_tables.add(i)
-                    reward += 15
+                    reward += 50
         return reward
 
     def render(self):
