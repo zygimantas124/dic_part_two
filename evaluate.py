@@ -104,21 +104,35 @@ def evaluate_agent(args):
             hd = hausdorff_distance(agent_path, optimal_path)
         hd_norm = hd / np.hypot(env.width, env.height) # normalize by environment size
 
-        # Store results
-        hausdorff_distances.append(hd)
-        episode_rewards.append(total_reward)
-        episode_lengths.append(steps)
+        # ----- Store results for episode -----
+        hausdorff_distances.append(hd) # Hausdorff distance for this episode
+        episode_rewards.append(total_reward) # total reward for this episode
+        episode_lengths.append(steps) # steps taken in this episode
         print(f"Episode {episode+1}/{args.n_episodes}: Reward = {total_reward:.2f}, Steps = {steps}, Hausdorff Distance = {hd:.2f} (norm={hd_norm:.2f})")
 
     env.close()
 
+    # ----- Evaluation summary -----
+    min_reward = np.min(episode_rewards)
+    max_reward = np.max(episode_rewards)
+    avg_reward = np.mean(episode_rewards)
+    std_reward = np.std(episode_rewards)
+    avg_steps = np.mean(episode_lengths)
+    std_steps = np.std(episode_lengths)
+    avg_hd = np.mean(hausdorff_distances) # Hausdorff distance
+    std_hd = np.std(hausdorff_distances)
+    x = np.arange(1, len(episode_rewards) + 1)
+    #TODO: sanity check if auc_reward is correct
+    auc_reward = np.trapezoid(episode_rewards, x) # Area Under Learning Curve (AUC)
+
     print("\n--- Evaluation Summary ---")
     print(f"Episodes: {len(episode_rewards)}")
-    print(f"Average Reward: {np.mean(episode_rewards):.2f} +/- {np.std(episode_rewards):.2f}")
-    print(f"Min Reward:     {np.min(episode_rewards):.2f}")
-    print(f"Max Reward:     {np.max(episode_rewards):.2f}")
-    print(f"Avg Steps:      {np.mean(episode_lengths):.2f} +/- {np.std(episode_lengths):.2f}")
-    print(f"Avg Hausdorff Dist: {np.mean(hausdorff_distances):.2f} ±{np.std(hausdorff_distances):.2f}")
+    print(f"Average Reward: {avg_reward:.2f} +/- {std_reward:.2f}")
+    print(f"Min Reward:     {min_reward:.2f}")
+    print(f"Max Reward:     {max_reward:.2f}")
+    print(f"Avg Steps:      {avg_steps:.2f} +/- {std_steps:.2f}")
+    print(f"Avg Hausdorff Dist: {avg_hd:.2f} ±{std_hd:.2f}")
+    print(f"AUC Reward: {auc_reward:.2f}")
     print("--------------------------")
 
 if __name__ == "__main__":
