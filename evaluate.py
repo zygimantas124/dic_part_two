@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import time
+import logging
 from argparse import ArgumentParser
 from office.delivery_env import DeliveryRobotEnv
 from agents.DQN import DQNAgent
@@ -43,7 +44,10 @@ def evaluate_agent(args):
         buffer_size=1,
         min_replay_size=1,
         target_update_freq=1e8,
-        device=device
+        device=device,
+        goal_buffer_size=50000,
+        goal_fraction=0.4,
+        logger=None
     )
 
     try:
