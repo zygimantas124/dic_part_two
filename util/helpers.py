@@ -10,7 +10,8 @@ from tqdm import tqdm
 
 # ---------- Argument Parsing ----------
 def parse_args(argv=None):
-    p = ArgumentParser(description="Unified PPO/DQN Training Script")
+    p = ArgumentParser(description="Unified PPO/DQN Training Script",
+                       fromfile_prefix_chars='@')
     p.add_argument("--device", type=str, choices=["cpu", "cuda"], default="auto",
                 help="Device to use for training (cpu or cuda). If not set, automatically selects CUDA if available.")
 
