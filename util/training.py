@@ -1,3 +1,5 @@
+import os
+import json
 import torch
 import numpy as np
 from tqdm import tqdm
@@ -61,36 +63,29 @@ def load_model_if_needed(agent, args, logger):
         except Exception as e:
             logger.error(f"Error loading model: {e}. Starting from scratch.")
 
-def run_episode(env, agent, args, logger, episode, total_steps=0):
-    """Run a single training episode and return relevant metrics."""
+def run_episode(env, agent, args, logger, episode, total_steps=0, record=True, record_path=None):
+    """Run a single training episode and optionally record transitions."""
     obs, _ = env.reset()
     episode_reward = 0.0
     episode_steps = 0
     done = False
+    trajectory = [] if record else None
 
     while not done and episode_steps < args.max_episode_steps:
         if args.render_mode == "human":
             env.render()
 
-        # Action selection
         action_data = agent.select_action(obs)
-        if args.algo == "ppo":
-            action, log_prob, value = action_data
-        else:
-            action = action_data
+        action = action_data if args.algo == "dqn" else action_data[0]
 
-        # Environment step
         next_obs, reward, terminated, truncated, _ = env.step(action)
         done = terminated or truncated
 
-        # Store transition
         if args.algo == "ppo":
-            agent.store_transition(obs, action, log_prob, reward, done, value)
-        else:  # DQN
-            # DQNAgent internally handles adding to both buffers (goal and replay)
+            agent.store_transition(obs, action, action_data[1], reward, done, action_data[2])
+        else:
             agent.store_transition(obs, action, reward, next_obs, done)
 
-        # Learning step (DQN learns every 4 steps if possible)
         if args.algo == "dqn" and total_steps % 4 == 0 and agent._can_learn():
             agent.learn()
         elif args.algo == "ppo" and done:
@@ -100,17 +95,30 @@ def run_episode(env, agent, args, logger, episode, total_steps=0):
                 agent.compute_returns_and_advantages(last_value=last_value.item())
                 agent.learn()
 
+        # Store trajectory if recording
+        if record:
+            trajectory.append({
+                "state": obs.tolist(),
+                "action": int(action),
+                "reward": float(reward),
+                "next_state": next_obs.tolist(),
+                "done": bool(done)
+            })
+
         obs = next_obs
         episode_reward += reward
         episode_steps += 1
         total_steps += 1
 
-        if done and args.algo == "dqn":
-            termination_type = "terminated" if terminated else "truncated"
-            logger.debug(f"Episode {episode} ended via {termination_type} at step {episode_steps}")
-            break
+    if record and record_path:
+        os.makedirs(os.path.dirname(record_path), exist_ok=True)
+        with open(record_path, "w") as f:
+            json.dump(trajectory, f, indent=2)
+        termination_status = "terminated" if terminated else "truncated" 
+        logger.debug(f"Episode {episode} recorded ({termination_status}) at step {episode_steps}")
 
     return episode_reward, episode_steps, total_steps
+
 
 def log_progress(args, episode, all_episode_rewards, total_steps, agent, logger):
     """Log training progress at specified intervals."""
@@ -142,7 +150,9 @@ def train(args, logger):
     total_steps = 0
 
     for episode in tqdm(range(args.max_episodes), desc=f"{args.algo.upper()} Training Episodes"):
-        episode_reward, episode_steps, total_steps = run_episode(env, agent, args, logger, episode, total_steps)
+        log_path = f"./logs/episode_{episode}.json"
+        episode_reward, episode_steps, total_steps = run_episode(env, agent, args, logger, episode, total_steps, record_path=log_path)
+
 
         all_episode_rewards.append(episode_reward)
         if args.algo == "dqn" and episode > 50:
