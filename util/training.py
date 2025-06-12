@@ -43,7 +43,9 @@ def initialize_agent(args, obs_dim):
             "alpha": args.alpha,
             "buffer_size": args.buffer_size,
             "min_replay_size": args.min_replay_size,
-            "target_update_freq": args.target_update_freq
+            "target_update_freq": args.target_update_freq,
+            "goal_buffer_size": args.goal_buffer_size,
+            "goal_fraction": args.goal_fraction
         }
         return DQNAgent(**common_params, **dqn_params)
 

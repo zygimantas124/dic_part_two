@@ -85,9 +85,9 @@ class DQNAgent:
     Deep Q-Network Agent.
     """
     def __init__(self, obs_dim, n_actions, gamma, epsilon, epsilon_min,
-                 epsilon_decay_rate, alpha, batch_size, buffer_size,
-                 min_replay_size, target_update_freq, device=None,
-                 qnet_size="small"):
+                epsilon_decay_rate, alpha, batch_size, buffer_size,
+                min_replay_size, target_update_freq, goal_buffer_size, goal_fraction,
+                device=None, qnet_size="small"):
         """
         Initialize the DQNAgent.
         Args:
@@ -132,7 +132,8 @@ class DQNAgent:
         # Replay Buffers
         self.replay_buffer = ReplayBuffer(self.buffer_size)
         self.goal_buffer = ReplayBuffer(50000)  # Buffer for positive-reward transitions
-
+        self.goal_buffer = ReplayBuffer(goal_buffer_size)
+        self.goal_fraction = goal_fraction
         self.learn_step_counter = 0  # To track when to update target network
 
     def select_action(self, state, explore=True):
@@ -183,7 +184,7 @@ class DQNAgent:
 
         # Split batch: sample from goal buffer and main buffer
         goal_fraction = 0.4 # 25% of batch from goal-reaching transitions
-        n_goal = int(self.batch_size * goal_fraction)
+        n_goal = int(self.batch_size * self.goal_fraction)
         n_main = self.batch_size - n_goal
 
         # Sample with fallback if goal_buffer doesn't have enough data

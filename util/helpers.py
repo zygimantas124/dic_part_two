@@ -41,6 +41,10 @@ def parse_args(argv=None):
     p.add_argument("--min_replay_size", type=int, default=int(1e5))
     p.add_argument("--target_update_freq", type=int, default=int(5e4))
     p.add_argument("--load_model_path", type=str, default=None)
+    p.add_argument("--goal_buffer_size", type=int, default=50000,
+               help="Capacity of the goal buffer (for positive reward transitions)")
+    p.add_argument("--goal_fraction", type=float, default=0.4,
+               help="Fraction of samples in each batch drawn from the goal buffer")
 
     return p.parse_args(argv)
 
