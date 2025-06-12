@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import random
+import logging
 from collections import deque
 
 class QNetwork(nn.Module):
