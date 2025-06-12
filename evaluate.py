@@ -7,7 +7,7 @@ import logging
 from argparse import ArgumentParser
 from office.delivery_env import DeliveryRobotEnv
 from agents.DQN import DQNAgent
-from util.helpers import hausdorff_distance, compute_optimal_path
+from util.helpers import hausdorff_distance, compute_optimal_path, compute_tortuosity
 
 def parse_eval_args(argv=None):
     p = ArgumentParser(description="DQN Agent Evaluation Script")
@@ -65,13 +65,16 @@ def evaluate_agent(args):
 
     episode_rewards = []
     episode_lengths = []
-    hausdorff_distances = []
+    hausdorff_distances = [] # For deviation from optimal path
+    tortuosities = [] # For unnecessary rotations
 
     # Precompute optimal path once for same environment layout
     CELL_SIZE = 1 # To discretize the environment, for a-star optimal path
-    print(f"Computing optimal path with cell size {CELL_SIZE}...")
     optimal_path = compute_optimal_path(env, CELL_SIZE)
     print(f"Optimal path length: {len(optimal_path)} cells")
+    # Precompute tortuosity of the optimal path
+    baseline_tort = compute_tortuosity(optimal_path)
+    print(f"Optimal path tortuosity: {baseline_tort:.4f}")
 
     print(f"\nStarting evaluation for {args.n_episodes} episodes...")
 
@@ -103,13 +106,15 @@ def evaluate_agent(args):
         else:
             hd = hausdorff_distance(agent_path, optimal_path)
         hd_norm = hd / np.hypot(env.width, env.height) # normalize by environment size
+        tort = compute_tortuosity(agent_path) # Compute tortuosity of the agent's path
 
         # ----- Store results for episode -----
         hausdorff_distances.append(hd) # Hausdorff distance for this episode
         episode_rewards.append(total_reward) # total reward for this episode
         episode_lengths.append(steps) # steps taken in this episode
-        print(f"Episode {episode+1}/{args.n_episodes}: Reward = {total_reward:.2f}, Steps = {steps}, Hausdorff Distance = {hd:.2f} (norm={hd_norm:.2f})")
-
+        tortuosities.append(tort) # tortuosity of the agent's path
+        print(f"Episode {episode + 1}/{args.n_episodes} - Reward: {total_reward:.2f}, Steps: {steps}, "
+              f"Hausdorff Dist: {hd:.2f} (norm: {hd_norm:.4f}), Tortuosity: {tort:.4f}")
     env.close()
 
     # ----- Evaluation summary -----
@@ -124,6 +129,9 @@ def evaluate_agent(args):
     x = np.arange(1, len(episode_rewards) + 1)
     #TODO: sanity check if auc_reward is correct
     auc_reward = np.trapezoid(episode_rewards, x) # Area Under Learning Curve (AUC)
+    #TODO: sanity check for tortuosities
+    avg_tort = np.mean(tortuosities)
+    std_tort = np.std(tortuosities)
 
     print("\n--- Evaluation Summary ---")
     print(f"Episodes: {len(episode_rewards)}")
@@ -132,6 +140,7 @@ def evaluate_agent(args):
     print(f"Max Reward:     {max_reward:.2f}")
     print(f"Avg Steps:      {avg_steps:.2f} +/- {std_steps:.2f}")
     print(f"Avg Hausdorff Dist: {avg_hd:.2f} ±{std_hd:.2f}")
+    print(f"Avg Tortuosity: {avg_tort:.4f} ±{std_tort:.4f} (baseline: {baseline_tort:.4f})")
     print(f"AUC Reward: {auc_reward:.2f}")
     print("--------------------------")
 

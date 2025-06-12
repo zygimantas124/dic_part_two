@@ -196,3 +196,26 @@ def compute_optimal_path(env, cell_size):
         real_y = cy*cell_size + cell_size/2
         real_path.append((real_x, real_y))
     return real_path
+
+def compute_tortuosity(path):
+    """
+    Compute the tortuosity of a path as total angular change divided by path length.
+    """
+    path = np.array(path)
+    if len(path) < 3: # not enough points to compute angles
+        return 0.0
+    total_turn = 0.0
+    total_length = 0.0 
+    for i in range(1, len(path) - 1):
+        v1 = path[i] - path[i - 1]
+        v2 = path[i + 1] - path[i] # vectors between points
+        norm1 = np.linalg.norm(v1)
+        norm2 = np.linalg.norm(v2) # avoid division by zero
+        if norm1 == 0 or norm2 == 0: 
+            continue
+        angle = np.arccos(np.clip(np.dot(v1, v2) / (norm1 * norm2), -1.0, 1.0))
+        total_turn += abs(angle) # accumulate total angular change
+        total_length += norm1   
+    # Add the last segment length
+    total_length += np.linalg.norm(path[-1] - path[-2])
+    return total_turn / total_length if total_length > 0 else 0.0 # return average angle change per unit length
