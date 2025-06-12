@@ -18,7 +18,7 @@ def initialize_environment(args):
     }
     return DeliveryRobotEnv(**env_config)
 
-def initialize_agent(args, obs_dim):
+def initialize_agent(args, obs_dim, logger):
     """Initialize the appropriate agent (PPO or DQN) based on args.algo."""
     device = args.device
     common_params = {
@@ -47,7 +47,7 @@ def initialize_agent(args, obs_dim):
             "goal_buffer_size": args.goal_buffer_size,
             "goal_fraction": args.goal_fraction
         }
-        return DQNAgent(**common_params, **dqn_params)
+        return DQNAgent(**common_params, **dqn_params, logger=logger)
 
 def load_model_if_needed(agent, args, logger):
     """Load a pre-trained model for DQN if specified."""
@@ -134,7 +134,7 @@ def train(args, logger):
     """Unified training function for PPO and DQN."""
     set_global_seed(args.seed)
     env = initialize_environment(args)
-    agent = initialize_agent(args, env.observation_space.shape[0])
+    agent = initialize_agent(args, env.observation_space.shape[0], logger)
     load_model_if_needed(agent, args, logger)
 
     logger.info(f"Starting {args.algo.upper()} training for {args.max_episodes} episodes...")

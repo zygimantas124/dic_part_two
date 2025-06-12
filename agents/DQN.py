@@ -86,8 +86,8 @@ class DQNAgent:
     """
     def __init__(self, obs_dim, n_actions, gamma, epsilon, epsilon_min,
                 epsilon_decay_rate, alpha, batch_size, buffer_size,
-                min_replay_size, target_update_freq, goal_buffer_size, goal_fraction,
-                device=None, qnet_size="small"):
+                min_replay_size, target_update_freq, goal_buffer_size, 
+                goal_fraction, device, logger=None, qnet_size="small"):
         """
         Initialize the DQNAgent.
         Args:
@@ -118,7 +118,8 @@ class DQNAgent:
         self.target_update_freq = int(target_update_freq)
 
         self.device = device if device else torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        print(f"Using device: {self.device}")
+        self.logger = logger or logging.getLogger(__name__)
+        self.logger.info(f"Using device: {self.device}")
 
         # Initialize Q-Network, Target Q-Network
         self.q_net = QNetwork(obs_dim, n_actions, size=qnet_size).to(self.device)
@@ -230,7 +231,7 @@ class DQNAgent:
         """
         Update the target Q-Network by copying the weights from the main Q-Network.
         """
-        print(f"Updating target network at step {self.learn_step_counter + self.min_replay_size}")
+        self.logger.info(f"Updating target network at step {self.learn_step_counter + self.min_replay_size}")
         self.target_q_net.load_state_dict(self.q_net.state_dict())
 
     def decay_epsilon_multiplicative(self):
@@ -250,12 +251,12 @@ class DQNAgent:
         Loads the Q-network weights from a file.
         """
         self.q_net.load_state_dict(torch.load(path, map_location=self.device))
-        self.update_target_network()  # Ensure target network is also updated
-        print(f"Model loaded from {path}")
+        self.update_target_network() # update target netwrok
+        self.logger.info(f"Model loaded from {path}")
 
     def save_model(self, path):
         """
         Saves the Q-network weights to a file.
         """
         torch.save(self.q_net.state_dict(), path)
-        print(f"Model saved to {path}")
+        self.logger.info(f"Model saved to {path}")
