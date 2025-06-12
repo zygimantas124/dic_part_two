@@ -5,13 +5,14 @@ import numpy as np
 # Initialize pygame
 pygame.init()
 
-# Create the environment
+# Create the environment with raycasting enabled
 env = DeliveryRobotEnv(
-    config="big_table",
+    config="open_office_simple",  # Use a valid config
     render_mode="human",
     show_walls=True,
     show_obstacles=True,
     show_carpets=True,
+    use_raycasting=True,  # Enable raycasting to get ray data in observations
 )
 obs, _ = env.reset()
 
@@ -28,7 +29,7 @@ while running:
     action = None
     pressed_keys = pygame.key.get_pressed()
 
-    # Get direction from key combination
+    # Get direction from key combination (8 directions, 0-7)
     if pressed_keys[pygame.K_UP] and pressed_keys[pygame.K_LEFT]:
         action = 4  # Up-Left
     elif pressed_keys[pygame.K_UP] and pressed_keys[pygame.K_RIGHT]:
@@ -55,35 +56,47 @@ while running:
             elif event.key == pygame.K_d:
                 # Debug print
                 print(f"\n=== DEBUG ===")
-                print(f"Robot at: ({obs[0]:.1f}, {obs[1]:.1f})")
+                # New observation structure: [x_norm, y_norm, cos(angle), sin(angle), table_statuses..., ray_distances...]
+                actual_x = obs[0] * env.width
+                actual_y = obs[1] * env.height
+                print(f"Robot at: ({actual_x:.1f}, {actual_y:.1f})")
+                print(f"Robot angle (rad): {env.angle_rad:.2f}")
                 print(f"Delivered tables: {env.delivered_tables}")
-                print(f"Observation: {obs}")
+                print(f"Observation length: {len(obs)}")
+                
                 for i, (tx, ty, tw, th) in enumerate(env.tables):
                     table_center = np.array([tx + tw / 2, ty + th / 2])
-                    robot_pos = np.array([obs[0], obs[1]])
+                    robot_pos = np.array([actual_x, actual_y])
                     distance = np.linalg.norm(robot_pos - table_center)
                     status = "DELIVERED" if i in env.delivered_tables else "PENDING"
-                    print(
-                        f"Table {i}: center=({table_center[0]:.1f},{table_center[1]:.1f}) distance={distance:.1f} [{status}]"
-                    )
+                    print(f"Table {i}: center=({table_center[0]:.1f},{table_center[1]:.1f}) distance={distance:.1f} [{status}]")
                 print("=============\n")
             elif event.key == pygame.K_r:
                 obs, _ = env.reset()
                 print("Environment reset!")
-                print(f"Robot reset to ({obs[0]:.1f}, {obs[1]:.1f})")
+                actual_x = obs[0] * env.width
+                actual_y = obs[1] * env.height
+                print(f"Robot reset to ({actual_x:.1f}, {actual_y:.1f})")
 
     if action is not None:
         obs, reward, done, truncated, info = env.step(action)
 
-        # Print sample of ray distances
-        num_rays = env.num_cone_rays
-        ray_start = 2 + len(env.tables)  # Start index of ray data
-        ray_data = obs[ray_start:ray_start + num_rays]
-        
-        # Show first, middle, and last ray distances
-        if num_rays > 0:
-            for ray_index in range(0, num_rays, max(1, num_rays // 30)):
-                print(f"Ray {ray_index}: {ray_data[ray_index]:.2f} units")
+        # Print sample of ray distances (only if raycasting is enabled)
+        if env.use_raycasting:
+            num_rays = env.ray_config['num_rays']
+            # New observation structure: [x_norm, y_norm, cos(angle), sin(angle), table_statuses..., ray_distances...]
+            ray_start = 4 + len(env.tables)  # Start index of ray data (after position, orientation, and table statuses)
+            
+            if len(obs) > ray_start:
+                ray_data = obs[ray_start:ray_start + num_rays]
+                
+                # Show a few sample ray distances
+                sample_indices = [0, num_rays//4, num_rays//2, 3*num_rays//4, num_rays-1]
+                for ray_index in sample_indices:
+                    if ray_index < len(ray_data):
+                        # Convert normalized distance back to actual units
+                        actual_distance = ray_data[ray_index] * env.ray_config['max_distance']
+                        print(f"Ray {ray_index}: {actual_distance:.1f} units (norm: {ray_data[ray_index]:.3f})")
 
         if reward > 0:
             print(f"🎉 Positive reward: {reward:.2f}")
@@ -98,8 +111,6 @@ while running:
 
         if len(env.delivered_tables) > 0:
             print(f"📦 Delivered: {len(env.delivered_tables)}/{len(env.tables)} tables")
-
-        #print(env.ray_distance_dict)
 
     env.render()
     clock.tick(10)  # 10 FPS
