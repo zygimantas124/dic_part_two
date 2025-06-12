@@ -25,6 +25,7 @@ def parse_eval_args(argv=None):
                    help="Delay between frames when rendering (in seconds). Only applies if render_mode='human'.")
     return p.parse_args(argv)
 
+# TODO: during training save the agent and environment so we can call here in evaluate
 def evaluate_agent(args):
     env = DeliveryRobotEnv(config = 'open_office_simple', render_mode=args.render_mode, show_walls=False, show_carpets=False, show_obstacles=False)
     obs_dim = env.observation_space.shape[0]
