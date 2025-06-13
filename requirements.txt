@@ -4,3 +4,5 @@ pygame==2.6.1
 torch==2.7.0 #probably downloads cpu version
 tqdm
 scipy
+plotly
+ipywidgets
