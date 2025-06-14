@@ -168,45 +168,48 @@ class DQNAgent:
         return len(self.replay_buffer) >= self.min_replay_size
 
     def learn(self):
-            if not self._can_learn():
-                return None
+        """
+        Train the Q-Network using a batch of experiences from both the main replay buffer
+        and the goal buffer to reinforce successful behavior.
+        """
+        if not self._can_learn():
+            return None  # Not enough samples to learn
 
-            goal_fraction = 0.4  # 40% of batch from goal-reaching transitions
-            n_goal = int(self.batch_size * self.goal_fraction)
-            n_main = self.batch_size - n_goal
+        n_goal = int(self.batch_size * self.goal_fraction)
+        n_main = self.batch_size - n_goal
 
-            if len(self.goal_buffer) >= n_goal:
-                goal_samples = self.goal_buffer.sample(n_goal, self.device)
-            else:
-                goal_samples = self.replay_buffer.sample(n_goal, self.device)
+        if len(self.goal_buffer) >= n_goal:
+            goal_samples = self.goal_buffer.sample(n_goal, self.device)
+        else:
+            goal_samples = self.replay_buffer.sample(n_goal, self.device)
 
-            main_samples = self.replay_buffer.sample(n_main, self.device)
+        main_samples = self.replay_buffer.sample(n_main, self.device)
 
-            states = torch.cat([goal_samples[0], main_samples[0]], dim=0)
-            actions = torch.cat([goal_samples[1], main_samples[1]], dim=0).view(-1, 1)
-            rewards = torch.cat([goal_samples[2], main_samples[2]], dim=0)
-            next_states = torch.cat([goal_samples[3], main_samples[3]], dim=0)
-            dones = torch.cat([goal_samples[4], main_samples[4]], dim=0).float()
+        states = torch.cat([goal_samples[0], main_samples[0]], dim=0)
+        actions = torch.cat([goal_samples[1], main_samples[1]], dim=0).view(-1, 1)
+        rewards = torch.cat([goal_samples[2], main_samples[2]], dim=0)
+        next_states = torch.cat([goal_samples[3], main_samples[3]], dim=0)
+        dones = torch.cat([goal_samples[4], main_samples[4]], dim=0).float()
 
-            # Double DQN
-            with torch.no_grad():
-                next_actions = self.q_net(next_states).argmax(1, keepdim=True)
-                next_q_values_target = self.target_q_net(next_states).gather(1, next_actions)
-                target_q = rewards + self.gamma * next_q_values_target * (1 - dones)
+        # Double DQN
+        with torch.no_grad():
+            next_actions = self.q_net(next_states).argmax(1, keepdim=True)
+            next_q_values_target = self.target_q_net(next_states).gather(1, next_actions)
+            target_q = rewards + self.gamma * next_q_values_target * (1 - dones)
 
-            current_q = self.q_net(states).gather(1, actions)
-            loss = nn.functional.mse_loss(current_q, target_q)
+        current_q = self.q_net(states).gather(1, actions)
+        loss = nn.functional.mse_loss(current_q, target_q)
 
-            self.optimizer.zero_grad()
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(self.q_net.parameters(), max_norm=1.0)
-            self.optimizer.step()
+        self.optimizer.zero_grad()
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(self.q_net.parameters(), max_norm=1.0)
+        self.optimizer.step()
 
-            self.learn_step_counter += 1
-            if self.learn_step_counter % self.target_update_freq == 0:
-                self.update_target_network()
+        self.learn_step_counter += 1
+        if self.learn_step_counter % self.target_update_freq == 0:
+            self.update_target_network()
 
-            return loss.item()
+        return loss.item()
 
     def update_target_network(self):
         """
