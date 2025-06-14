@@ -52,8 +52,8 @@ CONFIGS = {
         walls="open_office_simple",
         tables="open_office",
         carpets="none",
-        people="open_office_simple",
-        furniture="open_office_simple",
+        people="none",
+        furniture="none",
     ),
 
     "big_table": EnvironmentConfig(

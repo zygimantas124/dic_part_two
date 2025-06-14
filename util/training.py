@@ -13,7 +13,7 @@ def initialize_environment(args):
     render_mode = args.render_mode if args.render_mode in [None, "human", "rgb_array"] else None
     env_config = {
         "config": "open_office_simple",
-        "show_walls": True if args.algo == "ppo" else False,
+        "show_walls": True,
         "show_carpets": False,
         "show_obstacles": False,
         "render_mode": render_mode
@@ -155,7 +155,7 @@ def train(args, logger):
 
 
         all_episode_rewards.append(episode_reward)
-        if args.algo == "dqn" and episode > 50:
+        if args.algo == "dqn" and episode > 50 and episode % 5 == 0:
             agent.decay_epsilon_multiplicative()
 
         log_progress(args, episode, all_episode_rewards, total_steps, agent, logger)

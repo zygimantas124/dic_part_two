@@ -30,7 +30,13 @@ def parse_eval_args(argv=None):
 
 # TODO: during training save the agent and environment so we can call here in evaluate
 def evaluate_agent(args):
-    env = DeliveryRobotEnv(config = 'open_office_simple', render_mode=args.render_mode, show_walls=False, show_carpets=False, show_obstacles=False)
+    env = DeliveryRobotEnv(
+        config="open_office_simple",
+        show_walls=True,
+        show_obstacles=True,
+        show_carpets=False,
+        render_mode="human"
+    )
     obs_dim = env.observation_space.shape[0]
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

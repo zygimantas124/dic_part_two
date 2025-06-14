@@ -102,8 +102,8 @@ def _get_office_simple_horizontal_walls():
     return [    ]
 def _get_office_simple_vertical_walls():
     return [
-        (250, 400, 6, 250),    
-        (450, 0, 6, 250),      
+        (250, 400, 20, 250),    
+        (450, 0, 20, 250),      
     ]
 
 

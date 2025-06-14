@@ -27,7 +27,7 @@ class DeliveryRobotEnv(gym.Env):
         self.width = 800
         self.height = 600
         self.robot_radius = 10
-        self.step_size = 10.0
+        self.step_size = 30.0
         self.reward = 0.0
 
         # Orientation tracking in radians
@@ -115,7 +115,7 @@ class DeliveryRobotEnv(gym.Env):
             proposed_pos[1] > self.height - self.robot_radius
         )
 
-        reward = -0.01  # Step penalty
+        reward = -0.1  # Step penalty
         if hit_boundary or self._check_collision(proposed_pos):
             reward -= 1.0  # Penalty for hitting boundary or collision
         else:
