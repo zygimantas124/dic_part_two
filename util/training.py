@@ -1,12 +1,12 @@
 import os
 import json
-import torch
 import numpy as np
 from tqdm import tqdm
 from office.delivery_env import DeliveryRobotEnv
 from agents.PPO import PPOAgent
 from agents.DQN import DQNAgent
 from util.helpers import set_global_seed
+
 
 def initialize_environment(args):
     """Initialize the DeliveryRobotEnv with validated render mode."""
@@ -15,10 +15,11 @@ def initialize_environment(args):
         "config": "open_office_simple",
         "show_walls": True if args.algo == "ppo" else False,
         "show_carpets": False,
-        "show_obstacles": False,
-        "render_mode": render_mode
+        "show_obstacles": True,
+        "render_mode": render_mode,
     }
     return DeliveryRobotEnv(**env_config)
+
 
 def initialize_agent(args, obs_dim, logger):
     """Initialize the appropriate agent (PPO or DQN) based on args.algo."""
@@ -28,15 +29,12 @@ def initialize_agent(args, obs_dim, logger):
         "n_actions": args.n_actions,
         "gamma": args.gamma,
         "batch_size": args.batch_size,
-        "device": device
+        "device": device,
     }
 
     if args.algo == "ppo":
-        ppo_params = {
-            "clip_eps": args.eps_clip,
-            "update_epochs": args.k_epochs
-        }
-        return PPOAgent(**common_params, **ppo_params)
+        ppo_params = {"clip_eps": args.eps_clip, "update_epochs": args.k_epochs}
+        return PPOAgent(**common_params, **ppo_params, logger=logger)
     else:  # dqn
         dqn_params = {
             "epsilon": args.epsilon_start,
@@ -47,9 +45,10 @@ def initialize_agent(args, obs_dim, logger):
             "min_replay_size": args.min_replay_size,
             "target_update_freq": args.target_update_freq,
             "goal_buffer_size": args.goal_buffer_size,
-            "goal_fraction": args.goal_fraction
+            "goal_fraction": args.goal_fraction,
         }
         return DQNAgent(**common_params, **dqn_params, logger=logger)
+
 
 def load_model_if_needed(agent, args, logger):
     """Load a pre-trained model for DQN if specified."""
@@ -63,7 +62,8 @@ def load_model_if_needed(agent, args, logger):
         except Exception as e:
             logger.error(f"Error loading model: {e}. Starting from scratch.")
 
-def run_episode(env, agent, args, logger, episode, total_steps=0, record=True, record_path=None):
+
+def run_episode(env, agent, args, logger, episode, total_steps=0, record=True, record_path=None, seen_termination=False):
     """Run a single training episode and optionally record transitions."""
     obs, _ = env.reset()
     episode_reward = 0.0
@@ -78,32 +78,32 @@ def run_episode(env, agent, args, logger, episode, total_steps=0, record=True, r
         action_data = agent.select_action(obs)
         action = action_data if args.algo == "dqn" else action_data[0]
 
-        next_obs, reward, terminated, truncated, _ = env.step(action)
-        done = terminated or truncated
+        next_obs, reward, terminated, _, _ = env.step(action)
+        done = terminated or episode_steps == args.max_episode_steps - 1
+
+        if terminated:
+            seen_termination = True
 
         if args.algo == "ppo":
-            agent.store_transition(obs, action, action_data[1], reward, done, action_data[2])
+            agent.store_transition(obs, action, action_data[1], reward, done, action_data[2], terminated)
         else:
             agent.store_transition(obs, action, reward, next_obs, done)
 
         if args.algo == "dqn" and total_steps % 4 == 0 and agent._can_learn():
             agent.learn()
-        elif args.algo == "ppo" and done:
-            with torch.no_grad():
-                state_tensor = torch.tensor(obs, dtype=torch.float32).unsqueeze(0).to(agent.device)
-                _, last_value = agent.actor_critic(state_tensor)
-                agent.compute_returns_and_advantages(last_value=last_value.item())
-                agent.learn()
+        elif args.algo == "ppo" and seen_termination and done:
+            agent.learn()
 
-        # Store trajectory if recording
         if record:
-            trajectory.append({
-                "state": obs.tolist(),
-                "action": int(action),
-                "reward": float(reward),
-                "next_state": next_obs.tolist(),
-                "done": bool(done)
-            })
+            trajectory.append(
+                {
+                    "state": obs.tolist(),
+                    "action": int(action),
+                    "reward": float(reward),
+                    "next_state": next_obs.tolist(),
+                    "done": bool(done),
+                }
+            )
 
         obs = next_obs
         episode_reward += reward
@@ -114,29 +114,32 @@ def run_episode(env, agent, args, logger, episode, total_steps=0, record=True, r
         os.makedirs(os.path.dirname(record_path), exist_ok=True)
         with open(record_path, "w") as f:
             json.dump(trajectory, f, indent=2)
-        termination_status = "terminated" if terminated else "truncated" 
+        termination_status = "terminated" if terminated else "truncated"
         logger.debug(f"Episode {episode} recorded ({termination_status}) at step {episode_steps}")
 
-    return episode_reward, episode_steps, total_steps
+    return episode_reward, episode_steps, total_steps, seen_termination
 
 
 def log_progress(args, episode, all_episode_rewards, total_steps, agent, logger):
     """Log training progress at specified intervals."""
     if episode % args.log_interval == 0:
-        recent_rewards = all_episode_rewards[-args.log_interval:]
+        recent_rewards = all_episode_rewards[-args.log_interval :]
         avg_reward = np.mean(recent_rewards)
         max_reward = np.max(recent_rewards)
-        log_message = (f"Episode: {episode} | Avg Reward (last {args.log_interval} eps): {avg_reward:.2f} | "
-                       f"Max Reward: {max_reward:.2f}")
+        log_message = (
+            f"Episode: {episode} | Avg Reward (last {args.log_interval} eps): {avg_reward:.2f} | Max Reward: {max_reward:.2f}"
+        )
         if args.algo == "dqn":
             log_message += f" | Total Steps: {total_steps} | Epsilon: {agent.epsilon:.3f}"
         logger.info(log_message)
+
 
 def save_model_if_needed(agent, args, logger):
     """Save the model if a save path is provided."""
     if args.save_model_path:
         agent.save_model(args.save_model_path)
         logger.info(f"{args.algo.upper()} model saved to {args.save_model_path}")
+
 
 def train(args, logger):
     """Unified training function for PPO and DQN."""
@@ -149,16 +152,22 @@ def train(args, logger):
     all_episode_rewards = []
     total_steps = 0
 
+    seen_termination = False
+
     for episode in tqdm(range(args.max_episodes), desc=f"{args.algo.upper()} Training Episodes"):
         log_path = f"./logs/episode_{episode}.json"
-        episode_reward, episode_steps, total_steps = run_episode(env, agent, args, logger, episode, total_steps, record_path=log_path)
-
+        episode_reward, episode_steps, total_steps, seen_termination = run_episode(
+            env, agent, args, logger, episode, total_steps, record_path=log_path, seen_termination=seen_termination
+        )
 
         all_episode_rewards.append(episode_reward)
         if args.algo == "dqn" and episode > 50:
             agent.decay_epsilon_multiplicative()
 
         log_progress(args, episode, all_episode_rewards, total_steps, agent, logger)
+
+        if seen_termination:
+            seen_termination = True
 
     env.close()
     logger.info(f"{args.algo.upper()} Training complete.")
