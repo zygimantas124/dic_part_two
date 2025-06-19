@@ -16,7 +16,7 @@ from util.helpers import hausdorff_distance, compute_optimal_path, compute_tortu
 def parse_eval_args(argv=None):
     # Search for a .pt file inside the logs directory
     default_model_path = None
-    pt_files = glob.glob("logs/*.pt")
+    pt_files = glob.glob("logs/*.pth")
     if pt_files:
         default_model_path = pt_files[0]
 
