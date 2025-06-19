@@ -6,19 +6,21 @@ from office.delivery_env import DeliveryRobotEnv
 from agents.PPO import PPOAgent
 from agents.DQN import DQNAgent
 from util.helpers import set_global_seed
-
+from office.components.env_configs import get_config
+from util.helpers import make_env
 
 def initialize_environment(args):
-    """Initialize the DeliveryRobotEnv with validated render mode."""
-    render_mode = args.render_mode if args.render_mode in [None, "human", "rgb_array"] else None
-    env_config = {
-        "config": "open_office_simple",
-        "show_walls": True if args.algo == "ppo" else False,
-        "show_carpets": False,
-        "show_obstacles": True,
-        "render_mode": render_mode,
-    }
-    return DeliveryRobotEnv(**env_config)
+    env_config = get_config(args.env_name)
+
+    return make_env(
+        env_config=env_config,
+        render_mode=args.render_mode,
+        show_walls=args.show_walls,
+        show_obstacles=args.show_obstacles,
+        show_carpets=args.show_carpets,
+        use_flashlight=args.use_flashlight,
+        use_raycasting=args.use_raycasting
+    )
 
 
 def initialize_agent(args, obs_dim, logger):
@@ -144,31 +146,60 @@ def save_model_if_needed(agent, args, logger):
 def train(args, logger):
     """Unified training function for PPO and DQN."""
     set_global_seed(args.seed)
+
+    # --- Initialize environment ---
     env = initialize_environment(args)
-    agent = initialize_agent(args, env.observation_space.shape[0], logger)
+    obs_dim = env.observation_space.shape[0]
+
+    # --- Initialize agent ---
+    agent = initialize_agent(args, obs_dim, logger)
     load_model_if_needed(agent, args, logger)
 
     logger.info(f"Starting {args.algo.upper()} training for {args.max_episodes} episodes...")
+    logger.info(f"Environment: {args.env_name}")
+    logger.info(f"Render mode: {args.render_mode}")
+    logger.info(f"Raycasting: {args.use_raycasting} | Flashlight: {args.use_flashlight}")
+
+    # save config
+    config_dump = {
+        "env_name": args.env_name,
+        "show_walls": args.show_walls,
+        "show_obstacles": args.show_obstacles,
+        "show_carpets": args.show_carpets,
+        "use_raycasting": args.use_raycasting,
+        "use_flashlight": args.use_flashlight,
+        "render_mode": args.render_mode,
+        "seed": args.seed,
+        "algo": args.algo
+    }
+    
+    os.makedirs("./logs", exist_ok=True)
+
+    # Save environment config before training begins
+    with open("./logs/env_config.json", "w") as f:
+        json.dump(config_dump, f, indent=2)
+
+
+    # --- Main training loop ---
     all_episode_rewards = []
     total_steps = 0
-
     seen_termination = False
 
     for episode in tqdm(range(args.max_episodes), desc=f"{args.algo.upper()} Training Episodes"):
         log_path = f"./logs/episode_{episode}.json"
         episode_reward, episode_steps, total_steps, seen_termination = run_episode(
-            env, agent, args, logger, episode, total_steps, record_path=log_path, seen_termination=seen_termination
+            env, agent, args, logger, episode, total_steps,
+            record_path=log_path, seen_termination=seen_termination
         )
 
         all_episode_rewards.append(episode_reward)
+
         if args.algo == "dqn" and episode > 50:
             agent.decay_epsilon_multiplicative()
 
         log_progress(args, episode, all_episode_rewards, total_steps, agent, logger)
 
-        if seen_termination:
-            seen_termination = True
-
     env.close()
     logger.info(f"{args.algo.upper()} Training complete.")
     save_model_if_needed(agent, args, logger)
+
