@@ -3,6 +3,7 @@ import random
 import logging
 import heapq
 from argparse import ArgumentParser
+from office.delivery_env import DeliveryRobotEnv
 
 import numpy as np
 import torch
@@ -11,30 +12,38 @@ from tqdm import tqdm
 
 # ---------- Argument Parsing ----------
 def parse_args(argv=None):
-    p = ArgumentParser(description="Unified PPO/DQN Training Script",
-                       fromfile_prefix_chars='@')
-    p.add_argument("--device", type=str, choices=["cpu", "cuda"], default="auto",
-                help="Device to use for training (cpu or cuda). If not set, automatically selects CUDA if available.")
+    p = ArgumentParser(
+        description="Unified PPO/DQN Training Script",
+        fromfile_prefix_chars='@'
+    )
 
+    # --- System ---
+    p.add_argument("--device", type=str, choices=["cpu", "cuda"], default="auto",
+                   help="Device to use for training (cpu or cuda).")
+
+    # --- Algorithm ---
     p.add_argument("--algo", choices=["ppo", "dqn"], required=True,
                    help="Algorithm to train: 'ppo' or 'dqn'")
 
-    # Shared
-    p.add_argument("--render_mode", type=str, default=None)
+    # --- Common Training Settings ---
+    p.add_argument("--render_mode", type=str, default=None,
+                   choices=["human", "rgb_array", None],
+                   help="Render mode (None, 'human', or 'rgb_array').")
     p.add_argument("--n_actions", type=int, default=8)
     p.add_argument("--gamma", type=float, default=0.995)
     p.add_argument("--max_episodes", type=int, default=500)
     p.add_argument("--max_episode_steps", type=int, default=512)
     p.add_argument("--log_interval", type=int, default=5)
     p.add_argument("--save_model_path", type=str, default=None)
+    p.add_argument("--load_model_path", type=str, default=None)
     p.add_argument("--seed", type=int, default=42)
 
-    # PPO-specific
+    # --- PPO-specific ---
     p.add_argument("--eps_clip", type=float, default=0.3)
     p.add_argument("--k_epochs", type=int, default=4)
     p.add_argument("--batch_size", type=int, default=64)
 
-    # DQN-specific
+    # --- DQN-specific ---
     p.add_argument("--epsilon_start", type=float, default=1.0)
     p.add_argument("--epsilon_min", type=float, default=0.01)
     p.add_argument("--epsilon_decay", type=float, default=0.99)
@@ -42,13 +51,29 @@ def parse_args(argv=None):
     p.add_argument("--buffer_size", type=int, default=int(1e5))
     p.add_argument("--min_replay_size", type=int, default=int(1e5))
     p.add_argument("--target_update_freq", type=int, default=int(5e4))
-    p.add_argument("--load_model_path", type=str, default=None)
-    p.add_argument("--goal_buffer_size", type=int, default=50000,
-               help="Capacity of the goal buffer (for positive reward transitions)")
-    p.add_argument("--goal_fraction", type=float, default=0.4,
-               help="Fraction of samples in each batch drawn from the goal buffer")
+    p.add_argument("--goal_buffer_size", type=int, default=50000)
+    p.add_argument("--goal_fraction", type=float, default=0.4)
+
+    # --- Environment config ---
+    p.add_argument("--env_name", type=str, default="open_office_simple",
+                   help="Predefined environment config name (e.g., 'simple', 'complex', 'open_office').")
+    p.add_argument("--show_walls", action="store_true", help="Render walls.")
+    p.add_argument("--hide_walls", dest="show_walls", action="store_false")
+    p.set_defaults(show_walls=True)
+
+    p.add_argument("--show_obstacles", action="store_true", help="Render people and furniture.")
+    p.add_argument("--hide_obstacles", dest="show_obstacles", action="store_false")
+    p.set_defaults(show_obstacles=True)
+
+    p.add_argument("--show_carpets", action="store_true", help="Render carpets.")
+    p.add_argument("--hide_carpets", dest="show_carpets", action="store_false")
+    p.set_defaults(show_carpets=False)
+
+    p.add_argument("--use_flashlight", action="store_true", help="Enable flashlight cone rendering.")
+    p.add_argument("--use_raycasting", action="store_true", help="Enable raycasting input to agent.")
 
     return p.parse_args(argv)
+
 
 
 # ---------- Seed Setup ----------
@@ -218,4 +243,15 @@ def compute_tortuosity(path):
         total_length += norm1   
     # Add the last segment length
     total_length += np.linalg.norm(path[-1] - path[-2])
-    return total_turn / total_length if total_length > 0 else 0.0 # return average angle change per unit length
+    return total_turn / total_length if total_length > 0 else 0.0 # return average angle change per unit 
+
+def make_env(env_config, render_mode=None, show_walls=True, show_obstacles=True, show_carpets=False, use_flashlight=False, use_raycasting=False):
+    return DeliveryRobotEnv(
+        custom_config=env_config,
+        render_mode=render_mode,
+        show_walls=show_walls,
+        show_obstacles=show_obstacles,
+        show_carpets=show_carpets,
+        use_flashlight=use_flashlight,
+        use_raycasting=use_raycasting
+    )
