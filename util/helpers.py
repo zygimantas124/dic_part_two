@@ -149,57 +149,105 @@ def build_occupancy_grid(env, cell_size):
     cols = int(w // cell_size)
     rows = int(h // cell_size)
     grid = np.zeros((rows, cols), dtype=np.uint8)
+
     def mark_rects(rects):
         for x, y, rw, rh in rects:
-            x0 = int(max(0, (x - env.robot_radius) // cell_size))
-            y0 = int(max(0, (y - env.robot_radius) // cell_size))
-            x1 = int(min(cols - 1, (x + rw + env.robot_radius) // cell_size))
-            y1 = int(min(rows - 1, (y + rh + env.robot_radius) // cell_size))
+            # Add buffer around obstacles for robot radius
+            x0 = int(max(0, (x - env.robot_radius - 1) // cell_size))
+            y0 = int(max(0, (y - env.robot_radius - 1) // cell_size))
+            x1 = int(min(cols - 1, (x + rw + env.robot_radius + 1) // cell_size))
+            y1 = int(min(rows - 1, (y + rh + env.robot_radius + 1) // cell_size))
             grid[y0:y1+1, x0:x1+1] = 1
+
     # walls and obstacles as blocked
     mark_rects(env.walls)
+
     for ox, oy, orad in env.obstacles:
         cx = int(ox // cell_size)
         cy = int(oy // cell_size)
-        r = int(np.ceil((orad + env.robot_radius) / cell_size))
+        # Ensure sufficient buffer around circular obstacles
+        r = int(np.ceil((orad + env.robot_radius + 1) / cell_size))
         y0, y1 = max(0, cy-r), min(rows-1, cy+r)
         x0, x1 = max(0, cx-r), min(cols-1, cx+r)
         for yy in range(y0, y1+1):
             for xx in range(x0, x1+1):
-                grid[yy, xx] = 1
+                if (xx - cx)**2 + (yy - cy)**2 <= r**2:
+                    grid[yy, xx] = 1
     return grid
 
 def astar(grid, start, goal):
     """A* on a 4-connected grid: returns list of (x, y) cell centers."""
+    import heapq
+
     rows, cols = grid.shape
-    def h(a, b): return abs(a[0]-b[0]) + abs(a[1]-b[1])
-    open_set = [(h(start, goal), 0, start, None)]
+
+    # Validate start and goal positions
+    if (start[1] >= rows or start[0] >= cols or 
+        goal[1] >= rows or goal[0] >= cols or
+        start[0] < 0 or start[1] < 0 or goal[0] < 0 or goal[1] < 0):
+        print(f"Invalid start {start} or goal {goal} for grid {grid.shape}")
+        return []
+    
+    if grid[start[1], start[0]] == 1:
+        print(f"Start position {start} is blocked!")
+        return []
+    
+    if grid[goal[1], goal[0]] == 1:
+        print(f"Goal position {goal} is blocked!")
+        return []
+
+    def h(a, b): 
+        return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
+    counter = 0
+    open_set = [(0, start)]
     came_from = {}
-    cost_so_far = {start: 0}
+    g_score = {start: 0}
+    f_score = {start: h(start, goal)}
+    closed_set = set()
+
+    directions = [(0, 1), (1, 0), (0, -1), (-1, 0)]
+
     while open_set:
-        _, cost, current, parent = heapq.heappop(open_set)
-        if current == goal:
-            # reconstruct
-            path = [current]
-            while current in came_from:
-                current = came_from[current]
-                path.append(current)
-            path.reverse()
-            return path
-        if current in came_from and parent is not None:
-            # visited with a better cost
+        current_f, current = heapq.heappop(open_set)
+
+        if current in closed_set:
             continue
-        if parent is not None:
-            came_from[current] = parent
-        for dx, dy in [(1,0),(-1,0),(0,1),(0,-1)]:
-            nbr = (current[0]+dx, current[1]+dy)
-            if 0 <= nbr[0] < cols and 0 <= nbr[1] < rows and grid[nbr[1], nbr[0]]==0:
-                new_cost = cost_so_far[current] + 1
-                if nbr not in cost_so_far or new_cost < cost_so_far[nbr]:
-                    cost_so_far[nbr] = new_cost
-                    priority = new_cost + h(nbr, goal)
-                    heapq.heappush(open_set, (priority, new_cost, nbr, current))
+
+        closed_set.add(current)
+
+        if current == goal:
+            # Reconstruct path
+            path = []
+            while current in came_from:
+                path.append(current)
+                current = came_from[current]
+            path.append(start)
+            return path[::-1]
+        
+        for dx, dy in directions:
+            neighbor = (current[0] + dx, current[1] + dy)
+            
+            # Check bounds
+            if (neighbor[0] < 0 or neighbor[0] >= cols or 
+                neighbor[1] < 0 or neighbor[1] >= rows):
+                continue
+            
+            # Check if blocked
+            if grid[neighbor[1], neighbor[0]] == 1:
+                continue
+            
+            tentative_g = g_score[current] + 1
+            
+            if neighbor not in g_score or tentative_g < g_score[neighbor]:
+                came_from[neighbor] = current
+                g_score[neighbor] = tentative_g
+                f_score[neighbor] = tentative_g + h(neighbor, goal)
+                heapq.heappush(open_set, (f_score[neighbor], neighbor))
+    
+    print("A-star failed to find a path")
     return []
+
 
 # TODO: seems to go wrong still as distance is 1 for optimal path, seems strange,,,,
 def compute_optimal_path(env, cell_size):
@@ -214,26 +262,43 @@ def compute_optimal_path(env, cell_size):
     goal_cell = (int(goal_center[0]//cell_size), int(goal_center[1]//cell_size))
     print("start_cell =", start_cell, "goal_cell =", goal_cell)   
 
-    # DEBUG for a-star: print grid and start/goal cells
-    print(f"Start cell: {start_cell}")
-    print(grid[
-        max(0, start_cell[1]-2):start_cell[1]+3,
-        max(0, start_cell[0]-2):start_cell[0]+3
-    ])
-    print(f"Goal cell: {goal_cell}")
-    print(grid[
-        max(0, goal_cell[1]-2):goal_cell[1]+3,
-        max(0, goal_cell[0]-2):goal_cell[0]+3
-    ])
+    # Clear a radius around the start and goal cells
+    rows, cols = grid.shape
+    clear_radius = max(3, int(env.robot_radius // cell_size) + 2)
+
+    # Clear around start cell
+    for dy in range(-clear_radius, clear_radius + 1):
+        for dx in range(-clear_radius, clear_radius + 1):
+            new_y = goal_cell[1] + dy
+            new_x = goal_cell[0] + dx
+            if 0 <= new_y < rows and 0 <= new_x < cols:
+                # Only clear if within reasonable distance
+                if dx*dx + dy*dy <= clear_radius*clear_radius:
+                    grid[new_y, new_x] = 0
+    
+    # ensure start position is clear
+    if 0 <= start_cell[1] < rows and 0 <= start_cell[0] < cols:
+        grid[start_cell[1], start_cell[0]] = 0
+    
+    print(f"Grid shape: {grid.shape}, Start: {start_cell}, Goal: {goal_cell}")
+    print(f"Start cell blocked: {grid[start_cell[1], start_cell[0]] == 1}")
+    print(f"Goal cell blocked: {grid[goal_cell[1], goal_cell[0]] == 1}")
 
     cell_path = astar(grid, start_cell, goal_cell)
-    print("cell_path:", cell_path[:10], "...", "len=", len(cell_path))
-    # convert cells to real positions
+
+    if not cell_path:
+        print("WARNING: A star failed, no path found. Taking direct line.")
+        return [(sx, sy), (goal_center[0], goal_center[1])]
+    
+    print(f"Cell path length: {len(cell_path)} cells")
+    
+    # Convert cells to real positions
     real_path = []
     for cx, cy in cell_path:
-        real_x = cx*cell_size + cell_size/2
-        real_y = cy*cell_size + cell_size/2
+        real_x = cx * cell_size + cell_size / 2
+        real_y = cy * cell_size + cell_size / 2
         real_path.append((real_x, real_y))
+
     return real_path
 
 def compute_tortuosity(path):
