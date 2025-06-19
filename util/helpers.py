@@ -71,6 +71,13 @@ def parse_args(argv=None):
 
     p.add_argument("--use_flashlight", action="store_true", help="Enable flashlight cone rendering.")
     p.add_argument("--use_raycasting", action="store_true", help="Enable raycasting input to agent.")
+    
+    # rewards
+    p.add_argument("--reward_step", type=float, default=-0.01, help="Reward for taking a step")
+    p.add_argument("--reward_collision", type=float, default=-1.0, help="Penalty for collision")
+    p.add_argument("--reward_delivery", type=float, default=50.0, help="Reward for delivering")
+    p.add_argument("--reward_carpet", type=float, default=-0.2, help="Penalty for moving over carpet")
+
 
     return p.parse_args(argv)
 
@@ -245,13 +252,3 @@ def compute_tortuosity(path):
     total_length += np.linalg.norm(path[-1] - path[-2])
     return total_turn / total_length if total_length > 0 else 0.0 # return average angle change per unit 
 
-def make_env(env_config, render_mode=None, show_walls=True, show_obstacles=True, show_carpets=False, use_flashlight=False, use_raycasting=False):
-    return DeliveryRobotEnv(
-        custom_config=env_config,
-        render_mode=render_mode,
-        show_walls=show_walls,
-        show_obstacles=show_obstacles,
-        show_carpets=show_carpets,
-        use_flashlight=use_flashlight,
-        use_raycasting=use_raycasting
-    )

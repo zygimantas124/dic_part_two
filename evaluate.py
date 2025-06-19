@@ -64,8 +64,13 @@ def evaluate_agent(args):
         show_obstacles=config["show_obstacles"],
         show_carpets=config["show_carpets"],
         use_flashlight=config.get("use_flashlight", False),
-        use_raycasting=config.get("use_raycasting", False)
+        use_raycasting=config.get("use_raycasting", False),
+        reward_step=config.get("reward_step", -0.01),
+        reward_collision=config.get("reward_collision", -1.0),
+        reward_delivery=config.get("reward_delivery", 50.0),
+        reward_carpet=config.get("reward_carpet", -0.2)
     )
+
 
     obs_dim = env.observation_space.shape[0]
 

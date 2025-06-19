@@ -22,8 +22,23 @@ from office.raycasting import (
 class DeliveryRobotEnv(gym.Env):
     metadata = {"render_modes": ["human"], "render_fps": 60}
 
-    def __init__(self, config="simple", render_mode=None, show_walls=True, show_obstacles=True, show_carpets=True, custom_config=None, use_flashlight=False, use_raycasting=False):
-        # Environment dimensions
+    def __init__(
+        self,
+        config="simple",
+        render_mode=None,
+        show_walls=True,
+        show_obstacles=True,
+        show_carpets=True,
+        custom_config=None,
+        use_flashlight=False,
+        use_raycasting=False,
+        reward_step=-0.01,
+        reward_collision=-1.0,
+        reward_delivery=50.0,
+        reward_carpet=-0.2
+    ):
+
+        
         self.width = 800
         self.height = 600
         self.robot_radius = 10
@@ -88,6 +103,12 @@ class DeliveryRobotEnv(gym.Env):
             high=np.full(obs_dim, 1.0, dtype=np.float32),
             dtype=np.float32
         )
+        
+        # rewards
+        self.reward_step = reward_step
+        self.reward_collision = reward_collision
+        self.reward_delivery = reward_delivery
+        self.reward_carpet = reward_carpet
 
         self.total_reward = 0.0
         self.step_count = 0
@@ -115,13 +136,13 @@ class DeliveryRobotEnv(gym.Env):
             proposed_pos[1] > self.height - self.robot_radius
         )
 
-        reward = -0.01  # Step penalty
+        reward = self.reward_step
         if hit_boundary or self._check_collision(proposed_pos):
-            reward -= 1.0  # Penalty for hitting boundary or collision
+            reward += self.reward_collision
         else:
             self.robot_pos = proposed_pos
             if self._on_carpet():
-                reward -= 0.2
+                reward += self.reward_carpet
             reward += self._check_table_delivery()
 
         self.total_reward += reward
@@ -206,7 +227,7 @@ class DeliveryRobotEnv(gym.Env):
                 rx, ry = self.robot_pos
                 if (tx - margin <= rx <= tx + tw + margin) and (ty - margin <= ry <= ty + th + margin):
                     self.delivered_tables.add(i)
-                    reward += 50
+                    reward += self.reward_delivery
         return reward
 
     def render(self):

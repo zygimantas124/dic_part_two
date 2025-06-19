@@ -7,20 +7,25 @@ from agents.PPO import PPOAgent
 from agents.DQN import DQNAgent
 from util.helpers import set_global_seed
 from office.components.env_configs import get_config
-from util.helpers import make_env
 
 def initialize_environment(args):
     env_config = get_config(args.env_name)
 
-    return make_env(
-        env_config=env_config,
+    return DeliveryRobotEnv(
+        custom_config=env_config,
         render_mode=args.render_mode,
         show_walls=args.show_walls,
         show_obstacles=args.show_obstacles,
         show_carpets=args.show_carpets,
         use_flashlight=args.use_flashlight,
-        use_raycasting=args.use_raycasting
+        use_raycasting=args.use_raycasting,
+        reward_step=args.reward_step,
+        reward_collision=args.reward_collision,
+        reward_delivery=args.reward_delivery,
+        reward_carpet=args.reward_carpet,
     )
+
+
 
 
 def initialize_agent(args, obs_dim, logger):
@@ -170,8 +175,13 @@ def train(args, logger):
         "use_flashlight": args.use_flashlight,
         "render_mode": args.render_mode,
         "seed": args.seed,
-        "algo": args.algo
+        "algo": args.algo,
+        "reward_step": args.reward_step,
+        "reward_collision": args.reward_collision,
+        "reward_delivery": args.reward_delivery,
+        "reward_carpet": args.reward_carpet
     }
+
     
     os.makedirs("./logs", exist_ok=True)
 
