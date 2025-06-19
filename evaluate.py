@@ -1,18 +1,29 @@
 import numpy as np
 import heapq
 import os
+import json
 import torch
 import time
+import glob
+
 import logging
 from argparse import ArgumentParser
 from office.delivery_env import DeliveryRobotEnv
 from agents.DQN import DQNAgent
-from util.helpers import hausdorff_distance, compute_optimal_path, compute_tortuosity
+from util.helpers import hausdorff_distance, compute_optimal_path, compute_tortuosity, make_env
+
 
 def parse_eval_args(argv=None):
+    # Search for a .pt file inside the logs directory
+    default_model_path = None
+    pt_files = glob.glob("logs/*.pt")
+    if pt_files:
+        default_model_path = pt_files[0]
+
     p = ArgumentParser(description="DQN Agent Evaluation Script")
-    p.add_argument("--model_path", type=str, required=True,
-                   help="Path to the trained PyTorch model file (e.g., saved_Qnets/dqn_model.pth).")
+    p.add_argument("--model_path", type=str, default=default_model_path,
+                   help="Path to trained model (.pt). If not specified, uses first found in logs/.")
+
     p.add_argument("--n_episodes", type=int, default=10,
                    help="Number of episodes to run for evaluation.")
     p.add_argument("--render_mode", type=str, default=None,
@@ -26,11 +37,36 @@ def parse_eval_args(argv=None):
                    help="Maximum steps per evaluation episode.")
     p.add_argument("--render_delay", type=float, default=0.03,
                    help="Delay between frames when rendering (in seconds). Only applies if render_mode='human'.")
-    return p.parse_args(argv)
+
+    args = p.parse_args(argv)
+
+    # Sanity check
+    if args.model_path is None:
+        raise FileNotFoundError("No model file provided and no *.pt file found in logs/")
+
+    return args
+
 
 # TODO: during training save the agent and environment so we can call here in evaluate
 def evaluate_agent(args):
-    env = DeliveryRobotEnv(config = 'open_office_simple', render_mode=args.render_mode, show_walls=False, show_carpets=False, show_obstacles=False)
+    # --- Load env config from training log ---
+    with open("logs/env_config.json", "r") as f:
+        config = json.load(f)
+
+    # Optionally override render_mode at evaluation time
+    render_mode = args.render_mode or config.get("render_mode")
+
+    # Create environment using the same settings as training
+    env = DeliveryRobotEnv(
+        config=config["env_name"],
+        render_mode=render_mode,
+        show_walls=config["show_walls"],
+        show_obstacles=config["show_obstacles"],
+        show_carpets=config["show_carpets"],
+        use_flashlight=config.get("use_flashlight", False),
+        use_raycasting=config.get("use_raycasting", False)
+    )
+
     obs_dim = env.observation_space.shape[0]
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
