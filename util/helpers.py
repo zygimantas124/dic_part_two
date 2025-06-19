@@ -8,15 +8,22 @@ from office.delivery_env import DeliveryRobotEnv
 import numpy as np
 import torch
 from tqdm import tqdm
+import shlex
 
+class CommentParser(ArgumentParser):
+    def convert_arg_line_to_args(self, arg_line):
+        # Skip empty lines and comments
+        arg_line = arg_line.strip()
+        if not arg_line or arg_line.startswith("#"):
+            return []
+        return shlex.split(arg_line)
 
 # ---------- Argument Parsing ----------
 def parse_args(argv=None):
-    p = ArgumentParser(
+    p = CommentParser(
         description="Unified PPO/DQN Training Script",
         fromfile_prefix_chars='@'
     )
-
     # --- System ---
     p.add_argument("--device", type=str, choices=["cpu", "cuda"], default="auto",
                    help="Device to use for training (cpu or cuda).")
