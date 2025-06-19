@@ -10,7 +10,7 @@ import logging
 from argparse import ArgumentParser
 from office.delivery_env import DeliveryRobotEnv
 from agents.DQN import DQNAgent
-from util.helpers import hausdorff_distance, compute_optimal_path, compute_tortuosity, make_env
+from util.helpers import hausdorff_distance, compute_optimal_path, compute_tortuosity
 
 
 def parse_eval_args(argv=None):
