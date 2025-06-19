@@ -50,8 +50,25 @@ def parse_eval_args(argv=None):
 # TODO: during training save the agent and environment so we can call here in evaluate
 def evaluate_agent(args):
     # --- Load env config from training log ---
-    with open("logs/env_config.json", "r") as f:
-        config = json.load(f)
+    try:
+        with open("logs/env_config.json", "r") as f:
+            config = json.load(f)
+    except FileNotFoundError:
+        print("Warning: env_config.json not found, using default settings")
+        # Dummy/default configuration values
+        config = {
+            "env_name": "open_office_simple",      # Simple environment for testing
+            "show_walls": False,                   # No walls for easier navigation
+            "show_obstacles": False,               # No obstacles for easier navigation  
+            "show_carpets": False,                 # No carpets to avoid penalties
+            "use_flashlight": False,               # Disable flashlight effect
+            "use_raycasting": False,               # Disable raycasting for simpler obs
+            "reward_step": -0.01,                  # Small step penalty
+            "reward_collision": -1.0,              # Collision penalty
+            "reward_delivery": 50.0,               # Delivery reward
+            "reward_carpet": -0.2,                 # Carpet penalty
+            "render_mode": None                    # No rendering by default
+        }
 
     # Optionally override render_mode at evaluation time
     render_mode = args.render_mode or config.get("render_mode")
@@ -110,9 +127,11 @@ def evaluate_agent(args):
     tortuosities = [] # For unnecessary rotations
 
     # Precompute optimal path once for same environment layout
-    CELL_SIZE = 1 # To discretize the environment, for a-star optimal path
+    CELL_SIZE = 5 # To discretize the environment, for a-star optimal path
+
     optimal_path = compute_optimal_path(env, CELL_SIZE)
     print(f"Optimal path length: {len(optimal_path)} cells")
+    
     # Precompute tortuosity of the optimal path
     baseline_tort = compute_tortuosity(optimal_path)
     print(f"Optimal path tortuosity: {baseline_tort:.4f}")
