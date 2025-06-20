@@ -187,21 +187,30 @@ def evaluate_agent(args):
     avg_hd = np.mean(hausdorff_distances) # Hausdorff distance
     std_hd = np.std(hausdorff_distances)
     x = np.arange(1, len(episode_rewards) + 1)
-    #TODO: sanity check if auc_reward is correct
-    auc_reward = np.trapezoid(episode_rewards, x) # Area Under Learning Curve (AUC)
-    #TODO: sanity check for tortuosities
+
+    ### AUC Reward Calculation ###
+    success_rate = np.mean([r > 0 for r in episode_rewards])  # positive reward = success
+    cumulative_rewards = np.cumsum(episode_rewards)
+    episodes_x = np.arange(1, len(episode_rewards) + 1)
+    auc_cumulative = np.trapezoid(cumulative_rewards, episodes_x)
+    # Normalize by theoretical maximum (if all episodes gave max reward)
+    max_possible_cumulative = np.cumsum([max_reward] * len(episode_rewards))
+    auc_normalized = auc_cumulative / np.trapezoid(max_possible_cumulative, episodes_x)
+
+    ### Tortuosity Calculation ###
     avg_tort = np.mean(tortuosities)
     std_tort = np.std(tortuosities)
+
 
     print("\n--- Evaluation Summary ---")
     print(f"Episodes: {len(episode_rewards)}")
     print(f"Average Reward: {avg_reward:.2f} +/- {std_reward:.2f}")
     print(f"Min Reward:     {min_reward:.2f}")
     print(f"Max Reward:     {max_reward:.2f}")
-    print(f"Avg Steps:      {avg_steps:.2f} +/- {std_steps:.2f}")
-    print(f"Avg Hausdorff Dist: {avg_hd:.2f} ±{std_hd:.2f}")
-    print(f"Avg Tortuosity: {avg_tort:.4f} ±{std_tort:.4f} (baseline: {baseline_tort:.4f})")
-    print(f"AUC Reward: {auc_reward:.2f}")
+    print(f"Avg Steps:      {avg_steps:.2f}")
+    print(f"Avg Hausdorff Dist: {avg_hd:.2f} ± {std_hd:.2f} (normalized: {avg_hd / np.hypot(env.width, env.height):.4f})")
+    print(f"Avg Tortuosity: {avg_tort:.4f} ± {std_tort:.2f} (baseline: {baseline_tort:.4f})")
+    print(f"AUC Reward: {auc_normalized:.2f}")
     print("--------------------------")
 
 if __name__ == "__main__":
