@@ -186,21 +186,19 @@ def evaluate_agent(args):
     std_steps = np.std(episode_lengths)
     avg_hd = np.mean(hausdorff_distances) # Hausdorff distance
     std_hd = np.std(hausdorff_distances)
-    x = np.arange(1, len(episode_rewards) + 1)
+    #x = np.arange(1, len(episode_rewards) + 1)
 
-    ### AUC Reward Calculation ###
-    success_rate = np.mean([r > 0 for r in episode_rewards])  # positive reward = success
-    cumulative_rewards = np.cumsum(episode_rewards)
+    ### Learning Curve AUC Reward Calculation ###
     episodes_x = np.arange(1, len(episode_rewards) + 1)
-    auc_cumulative = np.trapezoid(cumulative_rewards, episodes_x)
-    # Normalize by theoretical maximum (if all episodes gave max reward)
-    max_possible_cumulative = np.cumsum([max_reward] * len(episode_rewards))
-    auc_normalized = auc_cumulative / np.trapezoid(max_possible_cumulative, episodes_x)
+    # To account for different lengths of episodes, normalize the x
+    episodes_normalized = (episodes_x - 1) / (len(episode_rewards) - 1) if len(episode_rewards) > 1 else [0]
+
+    # Calculate AUC using trapezoidal rule
+    auc_learning_curve = np.trapezoid(episode_rewards, episodes_normalized)
 
     ### Tortuosity Calculation ###
     avg_tort = np.mean(tortuosities)
     std_tort = np.std(tortuosities)
-
 
     print("\n--- Evaluation Summary ---")
     print(f"Episodes: {len(episode_rewards)}")
@@ -210,7 +208,7 @@ def evaluate_agent(args):
     print(f"Avg Steps:      {avg_steps:.2f}")
     print(f"Avg Hausdorff Dist: {avg_hd:.2f} ± {std_hd:.2f} (normalized: {avg_hd / np.hypot(env.width, env.height):.4f})")
     print(f"Avg Tortuosity: {avg_tort:.4f} ± {std_tort:.2f} (baseline: {baseline_tort:.4f})")
-    print(f"AUC Reward: {auc_normalized:.2f}")
+    print(f"AUC Reward: {auc_learning_curve:.2f}")
     print("--------------------------")
 
 if __name__ == "__main__":
