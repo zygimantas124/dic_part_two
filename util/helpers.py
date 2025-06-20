@@ -266,15 +266,15 @@ def compute_optimal_path(env, cell_size):
     rows, cols = grid.shape
     clear_radius = max(3, int(env.robot_radius // cell_size) + 2)
 
-    # Clear around start cell
-    for dy in range(-clear_radius, clear_radius + 1):
-        for dx in range(-clear_radius, clear_radius + 1):
-            new_y = goal_cell[1] + dy
-            new_x = goal_cell[0] + dx
-            if 0 <= new_y < rows and 0 <= new_x < cols:
-                # Only clear if within reasonable distance
-                if dx*dx + dy*dy <= clear_radius*clear_radius:
-                    grid[new_y, new_x] = 0
+    # Clear around goal and start cells
+    for cell in [start_cell, goal_cell]:
+        for dy in range(-clear_radius, clear_radius + 1):
+            for dx in range(-clear_radius, clear_radius + 1):
+                new_y = cell[1] + dy
+                new_x = cell[0] + dx
+                if 0 <= new_y < rows and 0 <= new_x < cols:
+                    if dx*dx + dy*dy <= clear_radius*clear_radius:
+                        grid[new_y, new_x] = 0
     
     # ensure start position is clear
     if 0 <= start_cell[1] < rows and 0 <= start_cell[0] < cols:
