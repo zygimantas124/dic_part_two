@@ -10,13 +10,7 @@ from office.components.walls import get_walls
 from office.components.env_configs import get_config, EnvironmentConfig
 
 import math
-from office.raycasting import (
-    cast_rays,
-    cast_rays_with_hits,
-    cast_cone_rays,
-    _intersect_ray_rect,
-    RAY_OFFSET
-)
+from office.raycasting import cast_rays, cast_rays_with_hits, cast_cone_rays, _intersect_ray_rect, RAY_OFFSET
 
 
 class DeliveryRobotEnv(gym.Env):
@@ -35,14 +29,12 @@ class DeliveryRobotEnv(gym.Env):
         reward_step=-0.01,
         reward_collision=-1.0,
         reward_delivery=50.0,
-        reward_carpet=-0.2
+        reward_carpet=-0.2,
     ):
-
-        
         self.width = 800
         self.height = 600
         self.robot_radius = 10
-        self.step_size = 10.0
+        self.step_size = 30.0
         self.reward = 0.0
 
         # Orientation tracking in radians
@@ -53,12 +45,7 @@ class DeliveryRobotEnv(gym.Env):
         self.use_raycasting = use_raycasting
 
         # Raycasting configuration
-        self.ray_config = {
-            'num_rays': 30,
-            'cone_width_deg': 45,
-            'max_distance': 300,
-            'render_rays': 30
-        }
+        self.ray_config = {"num_rays": 30, "cone_width_deg": 45, "max_distance": 300, "render_rays": 30}
 
         # Rendering setup
         self.render_mode = render_mode
@@ -96,14 +83,12 @@ class DeliveryRobotEnv(gym.Env):
         # Observation space: position, orientation, table statuses, (optional) ray distances
         obs_dim = 4 + len(self.tables)  # x, y, cos(angle), sin(angle), table status
         if self.use_raycasting:
-            obs_dim += self.ray_config['num_rays']
+            obs_dim += self.ray_config["num_rays"]
 
         self.observation_space = spaces.Box(
-            low=np.full(obs_dim, 0.0, dtype=np.float32),
-            high=np.full(obs_dim, 1.0, dtype=np.float32),
-            dtype=np.float32
+            low=np.full(obs_dim, 0.0, dtype=np.float32), high=np.full(obs_dim, 1.0, dtype=np.float32), dtype=np.float32
         )
-        
+
         # rewards
         self.reward_step = reward_step
         self.reward_collision = reward_collision
@@ -130,10 +115,10 @@ class DeliveryRobotEnv(gym.Env):
 
         # Check if proposed position is out of bounds
         hit_boundary = (
-            proposed_pos[0] < self.robot_radius or
-            proposed_pos[0] > self.width - self.robot_radius or
-            proposed_pos[1] < self.robot_radius or
-            proposed_pos[1] > self.height - self.robot_radius
+            proposed_pos[0] < self.robot_radius
+            or proposed_pos[0] > self.width - self.robot_radius
+            or proposed_pos[1] < self.robot_radius
+            or proposed_pos[1] > self.height - self.robot_radius
         )
 
         reward = self.reward_step
@@ -153,8 +138,12 @@ class DeliveryRobotEnv(gym.Env):
 
     def _get_obs(self):
         # Position + orientation
-        obs = [self.robot_pos[0] / self.width, self.robot_pos[1] / self.height,
-               math.cos(self.angle_rad), math.sin(self.angle_rad)]
+        obs = [
+            self.robot_pos[0] / self.width,
+            self.robot_pos[1] / self.height,
+            math.cos(self.angle_rad),
+            math.sin(self.angle_rad),
+        ]
 
         # Table delivery statuses
         status = [1 if i in self.delivered_tables else 0 for i in range(len(self.tables))]
@@ -170,7 +159,7 @@ class DeliveryRobotEnv(gym.Env):
         """Cast rays in a cone and return normalized distances to nearest obstacles."""
         px, py = float(self.robot_pos[0]), float(self.robot_pos[1])
         center_ang = self.angle_rad
-        cone_rad = math.radians(self.ray_config['cone_width_deg'])
+        cone_rad = math.radians(self.ray_config["cone_width_deg"])
 
         pts, types = cast_cone_rays(
             robot_pos=(px, py),
@@ -178,22 +167,22 @@ class DeliveryRobotEnv(gym.Env):
             circle_obstacles=self.obstacles,
             center_angle=center_ang,
             cone_width=cone_rad,
-            num_rays=self.ray_config['num_rays'],
-            max_distance=self.ray_config['max_distance'],
-            robot_radius=self.robot_radius
+            num_rays=self.ray_config["num_rays"],
+            max_distance=self.ray_config["max_distance"],
+            robot_radius=self.robot_radius,
         )
 
         ray_distances = []
         half_cone = cone_rad / 2
         for i, (ix, iy) in enumerate(pts):
-            dist = math.hypot(ix - px, iy - py) if types[i] in ("wall", "circle") else self.ray_config['max_distance']
-            ray_ang = center_ang - half_cone + i * (cone_rad / (self.ray_config['num_rays'] - 1))
+            dist = math.hypot(ix - px, iy - py) if types[i] in ("wall", "circle") else self.ray_config["max_distance"]
+            ray_ang = center_ang - half_cone + i * (cone_rad / (self.ray_config["num_rays"] - 1))
             dx, dy = math.cos(ray_ang), math.sin(ray_ang)
-            for (cx, cy, cw, ch) in self.carpets:
+            for cx, cy, cw, ch in self.carpets:
                 t = _intersect_ray_rect(px, py, dx, dy, cx, cy, cw, ch)
                 if t is not None and 0 <= t < dist:
                     dist = t
-            ray_distances.append(min(dist / self.ray_config['max_distance'], 1.0))
+            ray_distances.append(min(dist / self.ray_config["max_distance"], 1.0))
 
         self._last_ray_distances = ray_distances
         return ray_distances
@@ -202,7 +191,10 @@ class DeliveryRobotEnv(gym.Env):
         """Check if the given position collides with walls, obstacles, or tables."""
         x, y = pos
         for wx, wy, ww, wh in self.walls:
-            if wx - self.robot_radius <= x <= wx + ww + self.robot_radius and wy - self.robot_radius <= y <= wy + wh + self.robot_radius:
+            if (
+                wx - self.robot_radius <= x <= wx + ww + self.robot_radius
+                and wy - self.robot_radius <= y <= wy + wh + self.robot_radius
+            ):
                 return True
         for ox, oy, orad in self.obstacles:
             if np.linalg.norm(pos - np.array([ox, oy])) < orad + self.robot_radius:
@@ -253,7 +245,7 @@ class DeliveryRobotEnv(gym.Env):
         # Visualize rays
         px, py = self.robot_pos
         center_ang = self.angle_rad
-        cone_rad = math.radians(self.ray_config['cone_width_deg'])
+        cone_rad = math.radians(self.ray_config["cone_width_deg"])
 
         pts, _ = cast_cone_rays(
             robot_pos=(px, py),
@@ -261,9 +253,9 @@ class DeliveryRobotEnv(gym.Env):
             circle_obstacles=self.obstacles,
             center_angle=center_ang,
             cone_width=cone_rad,
-            num_rays=self.ray_config['render_rays'],
-            max_distance=self.ray_config['max_distance'],
-            robot_radius=self.robot_radius
+            num_rays=self.ray_config["render_rays"],
+            max_distance=self.ray_config["max_distance"],
+            robot_radius=self.robot_radius,
         )
 
         if self.use_flashlight:
@@ -275,7 +267,7 @@ class DeliveryRobotEnv(gym.Env):
                 pygame.draw.polygon(self.window, (255, 255, 200), poly_pts)
             self.window.blit(overlay, (0, 0))
         else:
-            for (ix, iy) in pts:
+            for ix, iy in pts:
                 pygame.draw.line(self.window, (200, 200, 80), (int(px), int(py)), (int(ix), int(iy)), 1)
 
         pygame.display.flip()
@@ -291,16 +283,16 @@ class DeliveryRobotEnv(gym.Env):
     @property
     def ray_distance_dict(self, scaled=True):
         """Get the current ray distances as a dictionary for debugging/visualization."""
-        if not hasattr(self, '_last_ray_distances'):
+        if not hasattr(self, "_last_ray_distances"):
             return {}
-        
+
         ray_dict = {}
         for i, dist in enumerate(self._last_ray_distances):
             if scaled:
                 # Scale to [0, 1] range
-                dist = min(dist / self.ray_config['max_distance'], 1.0)
+                dist = min(dist / self.ray_config["max_distance"], 1.0)
             else:
                 # Use raw distance
-                dist = max(0, min(dist, self.ray_config['max_distance']))
-            ray_dict[f"ray_{i}"] = dist * self.ray_config['max_distance']  # Use config
+                dist = max(0, min(dist, self.ray_config["max_distance"]))
+            ray_dict[f"ray_{i}"] = dist * self.ray_config["max_distance"]  # Use config
         return ray_dict
