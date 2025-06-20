@@ -8,6 +8,7 @@ from agents.DQN import DQNAgent
 from util.helpers import set_global_seed
 from office.components.env_configs import get_config
 
+
 def initialize_environment(args):
     env_config = get_config(args.env_name)
 
@@ -26,8 +27,6 @@ def initialize_environment(args):
     )
 
 
-
-
 def initialize_agent(args, obs_dim, logger):
     """Initialize the appropriate agent (PPO or DQN) based on args.algo."""
     device = args.device
@@ -37,6 +36,9 @@ def initialize_agent(args, obs_dim, logger):
         "gamma": args.gamma,
         "batch_size": args.batch_size,
         "device": device,
+        "epsilon": args.epsilon_start,
+        "epsilon_min": args.epsilon_min,
+        "epsilon_decay_rate": args.epsilon_decay,
     }
 
     if args.algo == "ppo":
@@ -44,9 +46,6 @@ def initialize_agent(args, obs_dim, logger):
         return PPOAgent(**common_params, **ppo_params, logger=logger)
     else:  # dqn
         dqn_params = {
-            "epsilon": args.epsilon_start,
-            "epsilon_min": args.epsilon_min,
-            "epsilon_decay_rate": args.epsilon_decay,
             "alpha": args.alpha,
             "buffer_size": args.buffer_size,
             "min_replay_size": args.min_replay_size,
@@ -179,16 +178,14 @@ def train(args, logger):
         "reward_step": args.reward_step,
         "reward_collision": args.reward_collision,
         "reward_delivery": args.reward_delivery,
-        "reward_carpet": args.reward_carpet
+        "reward_carpet": args.reward_carpet,
     }
 
-    
     os.makedirs("./logs", exist_ok=True)
 
     # Save environment config before training begins
     with open("./logs/env_config.json", "w") as f:
         json.dump(config_dump, f, indent=2)
-
 
     # --- Main training loop ---
     all_episode_rewards = []
@@ -198,8 +195,7 @@ def train(args, logger):
     for episode in tqdm(range(args.max_episodes), desc=f"{args.algo.upper()} Training Episodes"):
         log_path = f"./logs/episode_{episode}.json"
         episode_reward, episode_steps, total_steps, seen_termination = run_episode(
-            env, agent, args, logger, episode, total_steps,
-            record_path=log_path, seen_termination=seen_termination
+            env, agent, args, logger, episode, total_steps, record_path=log_path, seen_termination=seen_termination
         )
 
         all_episode_rewards.append(episode_reward)
@@ -212,4 +208,3 @@ def train(args, logger):
     env.close()
     logger.info(f"{args.algo.upper()} Training complete.")
     save_model_if_needed(agent, args, logger)
-
