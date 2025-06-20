@@ -248,8 +248,6 @@ def astar(grid, start, goal):
     print("A-star failed to find a path")
     return []
 
-
-# TODO: seems to go wrong still as distance is 1 for optimal path, seems strange,,,,
 def compute_optimal_path(env, cell_size):
     """Compute an A* path (cell centers) from start to first table."""
     grid = build_occupancy_grid(env, cell_size)

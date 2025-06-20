@@ -46,8 +46,6 @@ def parse_eval_args(argv=None):
 
     return args
 
-
-# TODO: during training save the agent and environment so we can call here in evaluate
 def evaluate_agent(args):
     # --- Load env config from training log ---
     try:
