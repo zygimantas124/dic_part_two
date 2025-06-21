@@ -60,6 +60,8 @@ def parse_args(argv=None):
     p.add_argument("--target_update_freq", type=int, default=int(5e4))
     p.add_argument("--goal_buffer_size", type=int, default=50000)
     p.add_argument("--goal_fraction", type=float, default=0.4)
+    p.add_argument('--warmstart', type=int, default=50,
+                    help='Number of episodes before epsilon decay starts (DQN only)')
 
     # --- Environment config ---
     p.add_argument("--env_name", type=str, default="open_office_simple",

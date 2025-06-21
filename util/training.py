@@ -200,7 +200,7 @@ def train(args, logger):
 
         all_episode_rewards.append(episode_reward)
 
-        if args.algo == "dqn" and episode > 50:
+        if args.algo == "dqn" and episode > args.warmstart:
             agent.decay_epsilon_multiplicative()
 
         log_progress(args, episode, all_episode_rewards, total_steps, agent, logger)
