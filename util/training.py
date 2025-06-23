@@ -208,3 +208,44 @@ def train(args, logger):
     env.close()
     logger.info(f"{args.algo.upper()} Training complete.")
     save_model_if_needed(agent, args, logger)
+
+
+def evaluate(args, logger):
+    """Evaluate a trained model using the evaluate.py module."""
+    try:
+        from evaluate import parse_eval_args, evaluate_agent
+        from types import SimpleNamespace
+        
+        # Create evaluation arguments
+        eval_args = SimpleNamespace()
+        
+        # Determine model path
+        if hasattr(args, 'save_model_path') and args.save_model_path:
+            eval_args.model_path = args.save_model_path
+        elif hasattr(args, 'load_model_path') and args.load_model_path:
+            eval_args.model_path = args.load_model_path
+        else:
+            # Let evaluate.py auto-detect
+            import glob
+            pt_files = glob.glob("logs/*.pth")
+            if pt_files:
+                eval_args.model_path = max(pt_files, key=os.path.getmtime)
+            else:
+                logger.error("No model file found for evaluation.")
+                return False
+        
+        # Map arguments
+        eval_args.n_episodes = args.eval_episodes
+        eval_args.render_mode = getattr(args, 'eval_render_mode', None) or getattr(args, 'render_mode', None)
+        eval_args.n_actions = args.n_actions
+        eval_args.eval_epsilon = args.eval_epsilon
+        eval_args.max_episode_steps = args.max_episode_steps
+        eval_args.render_delay = getattr(args, 'eval_render_delay', 0.03)
+        
+        logger.info(f"Starting evaluation with {eval_args.n_episodes} episodes")
+        evaluate_agent(eval_args)
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error during evaluation: {e}")
+        return False

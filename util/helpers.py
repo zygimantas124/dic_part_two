@@ -87,6 +87,25 @@ def parse_args(argv=None):
     p.add_argument("--reward_delivery", type=float, default=50.0, help="Reward for delivering")
     p.add_argument("--reward_carpet", type=float, default=-0.2, help="Penalty for moving over carpet")
 
+    # --- Evaluation Control ---
+    p.add_argument("--evaluate_only", action="store_true",
+                help="Skip training and only run evaluation on existing model.")
+    p.add_argument("--evaluate_after_training", action="store_true", 
+                help="Run evaluation after training completes.")
+
+    # --- Evaluation Settings ---
+    p.add_argument("--eval_episodes", type=int, default=10,
+                help="Number of episodes to run for evaluation.")
+    p.add_argument("--eval_epsilon", type=float, default=0.05,
+                help="Epsilon for exploration during evaluation (0 = greedy).")
+    p.add_argument("--eval_render_mode", type=str, default=None,
+                choices=[None, "human", "rgb_array"],
+                help="Render mode for evaluation (if different from training).")
+    p.add_argument("--eval_render_delay", type=float, default=0.03,
+                help="Delay between frames when rendering evaluation (in seconds).")
+    
+    
+
 
     return p.parse_args(argv)
 
