@@ -151,6 +151,13 @@ def train(args, logger):
     """Unified training function for PPO and DQN."""
     set_global_seed(args.seed)
 
+    # --- Handle auto-save for evaluation ---
+    temp_model_path = None
+    if args.evaluate_after_training and not args.save_model_path:
+        temp_model_path = "logs/temp_eval_model.pth"
+        args.save_model_path = temp_model_path
+        logger.info("No model save path specified. Will auto-save for evaluation then delete.")
+
     # --- Initialize environment ---
     env = initialize_environment(args)
     obs_dim = env.observation_space.shape[0]
@@ -208,6 +215,19 @@ def train(args, logger):
     env.close()
     logger.info(f"{args.algo.upper()} Training complete.")
     save_model_if_needed(agent, args, logger)
+
+    # --- Handle evaluation and cleanup ---
+    if args.evaluate_after_training:
+        logger.info("Starting post-training evaluation...")
+        success = evaluate(args, logger)
+        
+        # Clean up temporary model
+        if temp_model_path and os.path.exists(temp_model_path):
+            os.remove(temp_model_path)
+            logger.info(f"Temporary model {temp_model_path} deleted after evaluation.")
+            
+        if not success:
+            logger.warning("Evaluation failed, but training completed successfully.")
 
 
 def evaluate(args, logger):
