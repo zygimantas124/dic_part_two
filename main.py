@@ -36,7 +36,8 @@ if __name__ == "__main__":
 # python main.py --algo dqn --max_episodes 1000 --env_name open_office_simple --device cuda
 
 # 2. Evaluation only (load existing model)
-# python main.py --evaluate_only --load_model_path logs/my_model.pth --eval_episodes 20 --device cuda
+# python main.py --algo name --evaluate_only --load_model_path logs/my_model.pth --eval_episodes 20 --device cuda
+#TODO: right now algo is a required argument for evaluation, but it should not be
 
 # 3. Train then evaluate (complete pipeline - with and without saving)
 # python main.py --algo ppo --max_episodes 80 --evaluate_after_training --eval_episodes 10 --device cuda
