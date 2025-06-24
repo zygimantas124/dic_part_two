@@ -28,3 +28,16 @@ if __name__ == "__main__":
         else:
             logger.error(f"Unknown algorithm specified: {args.algo}")
             sys.exit(1)
+
+
+# Example usage: TODO: someone checks if these are reaonsable
+
+# 1. Training only (basic)
+# python main.py --algo dqn --max_episodes 1000 --env_name open_office_simple --device cuda
+
+# 2. Evaluation only (load existing model)
+# python main.py --evaluate_only --load_model_path logs/my_model.pth --eval_episodes 20 --device cuda
+
+# 3. Train then evaluate (complete pipeline - with and without saving)
+# python main.py --algo ppo --max_episodes 80 --evaluate_after_training --eval_episodes 10 --device cuda
+# python main.py --algo ppo --max_episodes 80 --evaluate_after_training --eval_episodes 10 --save_model_path logs/my_model --device cuda

@@ -94,15 +94,19 @@ def parse_args(argv=None):
                 help="Run evaluation after training completes.")
 
     # --- Evaluation Settings ---
+    p.add_argument("--evaluate_only", action="store_true", 
+               help="Skip training and only run evaluation on existing model.")
+    p.add_argument("--evaluate_after_training", action="store_true", 
+                help="Run evaluation after training completes.")
     p.add_argument("--eval_episodes", type=int, default=10,
-                help="Number of episodes to run for evaluation.")
-    p.add_argument("--eval_epsilon", type=float, default=0.05,
-                help="Epsilon for exploration during evaluation (0 = greedy).")
+                help="Number of episodes to run during evaluation.")
+    p.add_argument("--eval_epsilon", type=float, default=0.0,
+                help="Epsilon for exploration during evaluation (DQN only, 0 = greedy).")
     p.add_argument("--eval_render_mode", type=str, default=None,
                 choices=[None, "human", "rgb_array"],
-                help="Render mode for evaluation (if different from training).")
+                help="Render mode during evaluation (overrides main render_mode).")
     p.add_argument("--eval_render_delay", type=float, default=0.03,
-                help="Delay between frames when rendering evaluation (in seconds).")
+                help="Delay between frames when rendering during evaluation (in seconds).")
     
     
 
