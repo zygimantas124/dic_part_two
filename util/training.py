@@ -7,6 +7,8 @@ from agents.PPO import PPOAgent
 from agents.DQN import DQNAgent
 from util.helpers import set_global_seed
 from office.components.env_configs import get_config
+from evaluate import parse_eval_args, evaluate_agent
+from types import SimpleNamespace
 
 
 def initialize_environment(args):
@@ -231,11 +233,8 @@ def train(args, logger):
 
 
 def evaluate(args, logger):
-    """Evaluate a trained model using the evaluate.py module."""
+    """Evaluate a trained model using the unified evaluate.py module."""
     try:
-        from evaluate import parse_eval_args, evaluate_agent
-        from types import SimpleNamespace
-        
         # Create evaluation arguments
         eval_args = SimpleNamespace()
         
@@ -255,14 +254,15 @@ def evaluate(args, logger):
                 return False
         
         # Map arguments
+        eval_args.algo = args.algo  # algo type
         eval_args.n_episodes = args.eval_episodes
         eval_args.render_mode = getattr(args, 'eval_render_mode', None) or getattr(args, 'render_mode', None)
         eval_args.n_actions = args.n_actions
-        eval_args.eval_epsilon = args.eval_epsilon
+        eval_args.eval_epsilon = args.eval_epsilon  # Only used for DQN
         eval_args.max_episode_steps = args.max_episode_steps
         eval_args.render_delay = getattr(args, 'eval_render_delay', 0.03)
         
-        logger.info(f"Starting evaluation with {eval_args.n_episodes} episodes")
+        logger.info(f"Starting {args.algo.upper()} evaluation with {eval_args.n_episodes} episodes")
         evaluate_agent(eval_args)
         return True
         
