@@ -1,14 +1,14 @@
 import os
+import sys
 import random
 import logging
-import heapq
 from argparse import ArgumentParser
-from office.delivery_env import DeliveryRobotEnv
 
 import numpy as np
 import torch
 from tqdm import tqdm
 import shlex
+
 
 class CommentParser(ArgumentParser):
     def convert_arg_line_to_args(self, arg_line):
@@ -18,24 +18,26 @@ class CommentParser(ArgumentParser):
             return []
         return shlex.split(arg_line)
 
+
 # ---------- Argument Parsing ----------
 def parse_args(argv=None):
-    p = CommentParser(
-        description="Unified PPO/DQN Training Script",
-        fromfile_prefix_chars='@'
-    )
+    p = CommentParser(description="Unified PPO/DQN Training Script", fromfile_prefix_chars="@")
     # --- System ---
-    p.add_argument("--device", type=str, choices=["cpu", "cuda"], default="auto",
-                   help="Device to use for training (cpu or cuda).")
+    p.add_argument(
+        "--device", type=str, choices=["cpu", "cuda"], default="auto", help="Device to use for training (cpu or cuda)."
+    )
 
     # --- Algorithm ---
-    p.add_argument("--algo", choices=["ppo", "dqn"], required=True,
-                   help="Algorithm to train: 'ppo' or 'dqn'")
+    p.add_argument("--algo", choices=["ppo", "dqn"], required=True, help="Algorithm to train: 'ppo' or 'dqn'")
 
     # --- Common Training Settings ---
-    p.add_argument("--render_mode", type=str, default=None,
-                   choices=["human", "rgb_array", None],
-                   help="Render mode (None, 'human', or 'rgb_array').")
+    p.add_argument(
+        "--render_mode",
+        type=str,
+        default=None,
+        choices=["human", "rgb_array", None],
+        help="Render mode (None, 'human', or 'rgb_array').",
+    )
     p.add_argument("--n_actions", type=int, default=8)
     p.add_argument("--gamma", type=float, default=0.995)
     p.add_argument("--max_episodes", type=int, default=500)
@@ -60,12 +62,17 @@ def parse_args(argv=None):
     p.add_argument("--target_update_freq", type=int, default=int(5e4))
     p.add_argument("--goal_buffer_size", type=int, default=50000)
     p.add_argument("--goal_fraction", type=float, default=0.4)
-    p.add_argument('--warmstart', type=int, default=50,
-                    help='Number of episodes before epsilon decay starts (DQN only)')
+    p.add_argument(
+        "--warmstart", type=int, default=50, help="Number of episodes before epsilon decay starts (DQN only)"
+    )
 
     # --- Environment config ---
-    p.add_argument("--env_name", type=str, default="open_office_simple",
-                   help="Predefined environment config name (e.g., 'simple', 'complex', 'open_office').")
+    p.add_argument(
+        "--env_name",
+        type=str,
+        default="open_office_simple",
+        help="Predefined environment config name (e.g., 'simple', 'complex', 'open_office').",
+    )
     p.add_argument("--show_walls", action="store_true", help="Render walls.")
     p.add_argument("--hide_walls", dest="show_walls", action="store_false")
     p.set_defaults(show_walls=True)
@@ -80,7 +87,7 @@ def parse_args(argv=None):
 
     p.add_argument("--use_flashlight", action="store_true", help="Enable flashlight cone rendering.")
     p.add_argument("--use_raycasting", action="store_true", help="Enable raycasting input to agent.")
-    
+
     # rewards
     p.add_argument("--reward_step", type=float, default=-0.01, help="Reward for taking a step")
     p.add_argument("--reward_collision", type=float, default=-1.0, help="Penalty for collision")
@@ -88,31 +95,40 @@ def parse_args(argv=None):
     p.add_argument("--reward_carpet", type=float, default=-0.2, help="Penalty for moving over carpet")
 
     # --- Evaluation Control ---
-    p.add_argument("--evaluate_only", action="store_true",
-                help="Skip training and only run evaluation on existing model.")
-    p.add_argument("--evaluate_after_training", action="store_true", 
-                help="Run evaluation after training completes.")
+    p.add_argument(
+        "--evaluate_only", action="store_true", help="Skip training and only run evaluation on existing model."
+    )
+    p.add_argument("--evaluate_after_training", action="store_true", help="Run evaluation after training completes.")
 
     # --- Evaluation Settings ---
-    p.add_argument("--evaluate_only", action="store_true", 
-               help="Skip training and only run evaluation on existing model.")
-    p.add_argument("--evaluate_after_training", action="store_true", 
-                help="Run evaluation after training completes.")
-    p.add_argument("--eval_episodes", type=int, default=10,
-                help="Number of episodes to run during evaluation.")
-    p.add_argument("--eval_epsilon", type=float, default=0.0,
-                help="Epsilon for exploration during evaluation (DQN only, 0 = greedy).")
-    p.add_argument("--eval_render_mode", type=str, default=None,
-                choices=[None, "human", "rgb_array"],
-                help="Render mode during evaluation (overrides main render_mode).")
-    p.add_argument("--eval_render_delay", type=float, default=0.03,
-                help="Delay between frames when rendering during evaluation (in seconds).")
-    
-    
+    p.add_argument("--eval_episodes", type=int, default=10, help="Number of episodes to run during evaluation.")
+    p.add_argument(
+        "--eval_epsilon",
+        type=float,
+        default=0.0,
+        help="Epsilon for exploration during evaluation (DQN only, 0 = greedy).",
+    )
+    p.add_argument(
+        "--eval_render_mode",
+        type=str,
+        default=None,
+        choices=[None, "human", "rgb_array"],
+        help="Render mode during evaluation (overrides main render_mode).",
+    )
+    p.add_argument(
+        "--eval_render_delay",
+        type=float,
+        default=0.03,
+        help="Delay between frames when rendering during evaluation (in seconds).",
+    )
 
+    args = p.parse_args(argv)
 
-    return p.parse_args(argv)
+    # Capture the config file name if passed via @file.txt
+    config_file = next((arg[1:] for arg in (argv or sys.argv[1:]) if arg.startswith("@")), None)
+    setattr(args, "config_file", config_file)  # attach it to args
 
+    return args
 
 
 # ---------- Seed Setup ----------
@@ -139,6 +155,7 @@ class TqdmLoggingHandler(logging.Handler):
         except Exception:
             self.handleError(record)
 
+
 def setup_logger(log_level=logging.INFO, log_file="training.log"):
     logger = logging.getLogger("trainer")
     logger.setLevel(log_level)
@@ -155,18 +172,22 @@ def setup_logger(log_level=logging.INFO, log_file="training.log"):
 
     return logger
 
+
 # ---------- Hausdorff Distance functions ----------
 # --- RL Metric: Hausdorff Distance ---
 def hausdorff_distance(path_a, path_b):
     """Compute the symmetric Hausdorff distance between two 2D point lists."""
+
     def directed(a, b):
         # for each p in a, find min dist to any q in b, then take max
         dists = []
         for px, py in a:
-            min_d = min((px - qx)**2 + (py - qy)**2 for qx, qy in b)
+            min_d = min((px - qx) ** 2 + (py - qy) ** 2 for qx, qy in b)
             dists.append(min_d)
-        return max(dists)**0.5 if dists else 0.0
+        return max(dists) ** 0.5 if dists else 0.0
+
     return max(directed(path_a, path_b), directed(path_b, path_a))
+
 
 # Supportive functions and A-star to compute optimal path the environment
 def build_occupancy_grid(env, cell_size):
@@ -182,7 +203,7 @@ def build_occupancy_grid(env, cell_size):
             y0 = int(max(0, (y - env.robot_radius - 1) // cell_size))
             x1 = int(min(cols - 1, (x + rw + env.robot_radius + 1) // cell_size))
             y1 = int(min(rows - 1, (y + rh + env.robot_radius + 1) // cell_size))
-            grid[y0:y1+1, x0:x1+1] = 1
+            grid[y0 : y1 + 1, x0 : x1 + 1] = 1
 
     # walls and obstacles as blocked
     mark_rects(env.walls)
@@ -192,13 +213,14 @@ def build_occupancy_grid(env, cell_size):
         cy = int(oy // cell_size)
         # Ensure sufficient buffer around circular obstacles
         r = int(np.ceil((orad + env.robot_radius + 1) / cell_size))
-        y0, y1 = max(0, cy-r), min(rows-1, cy+r)
-        x0, x1 = max(0, cx-r), min(cols-1, cx+r)
-        for yy in range(y0, y1+1):
-            for xx in range(x0, x1+1):
-                if (xx - cx)**2 + (yy - cy)**2 <= r**2:
+        y0, y1 = max(0, cy - r), min(rows - 1, cy + r)
+        x0, x1 = max(0, cx - r), min(cols - 1, cx + r)
+        for yy in range(y0, y1 + 1):
+            for xx in range(x0, x1 + 1):
+                if (xx - cx) ** 2 + (yy - cy) ** 2 <= r**2:
                     grid[yy, xx] = 1
     return grid
+
 
 def astar(grid, start, goal):
     """A* on a 4-connected grid: returns list of (x, y) cell centers."""
@@ -207,21 +229,28 @@ def astar(grid, start, goal):
     rows, cols = grid.shape
 
     # Validate start and goal positions
-    if (start[1] >= rows or start[0] >= cols or 
-        goal[1] >= rows or goal[0] >= cols or
-        start[0] < 0 or start[1] < 0 or goal[0] < 0 or goal[1] < 0):
+    if (
+        start[1] >= rows
+        or start[0] >= cols
+        or goal[1] >= rows
+        or goal[0] >= cols
+        or start[0] < 0
+        or start[1] < 0
+        or goal[0] < 0
+        or goal[1] < 0
+    ):
         print(f"Invalid start {start} or goal {goal} for grid {grid.shape}")
         return []
-    
+
     if grid[start[1], start[0]] == 1:
         print(f"Start position {start} is blocked!")
         return []
-    
+
     if grid[goal[1], goal[0]] == 1:
         print(f"Goal position {goal} is blocked!")
         return []
 
-    def h(a, b): 
+    def h(a, b):
         return abs(a[0] - b[0]) + abs(a[1] - b[1])
 
     counter = 0
@@ -249,29 +278,29 @@ def astar(grid, start, goal):
                 current = came_from[current]
             path.append(start)
             return path[::-1]
-        
+
         for dx, dy in directions:
             neighbor = (current[0] + dx, current[1] + dy)
-            
+
             # Check bounds
-            if (neighbor[0] < 0 or neighbor[0] >= cols or 
-                neighbor[1] < 0 or neighbor[1] >= rows):
+            if neighbor[0] < 0 or neighbor[0] >= cols or neighbor[1] < 0 or neighbor[1] >= rows:
                 continue
-            
+
             # Check if blocked
             if grid[neighbor[1], neighbor[0]] == 1:
                 continue
-            
+
             tentative_g = g_score[current] + 1
-            
+
             if neighbor not in g_score or tentative_g < g_score[neighbor]:
                 came_from[neighbor] = current
                 g_score[neighbor] = tentative_g
                 f_score[neighbor] = tentative_g + h(neighbor, goal)
                 heapq.heappush(open_set, (f_score[neighbor], neighbor))
-    
+
     print("A-star failed to find a path")
     return []
+
 
 def compute_optimal_path(env, cell_size):
     """Compute an A* path (cell centers) from start to first table."""
@@ -280,10 +309,10 @@ def compute_optimal_path(env, cell_size):
     sx, sy = env.start_pos
     tx, ty, tw, th = env.tables[0]
     # cell coords
-    start_cell = (int(sx//cell_size), int(sy//cell_size))
-    goal_center = (tx + tw/2, ty + th/2)
-    goal_cell = (int(goal_center[0]//cell_size), int(goal_center[1]//cell_size))
-    print("start_cell =", start_cell, "goal_cell =", goal_cell)   
+    start_cell = (int(sx // cell_size), int(sy // cell_size))
+    goal_center = (tx + tw / 2, ty + th / 2)
+    goal_cell = (int(goal_center[0] // cell_size), int(goal_center[1] // cell_size))
+    print("start_cell =", start_cell, "goal_cell =", goal_cell)
 
     # Clear a radius around the start and goal cells
     rows, cols = grid.shape
@@ -296,13 +325,13 @@ def compute_optimal_path(env, cell_size):
                 new_y = cell[1] + dy
                 new_x = cell[0] + dx
                 if 0 <= new_y < rows and 0 <= new_x < cols:
-                    if dx*dx + dy*dy <= clear_radius*clear_radius:
+                    if dx * dx + dy * dy <= clear_radius * clear_radius:
                         grid[new_y, new_x] = 0
-    
+
     # ensure start position is clear
     if 0 <= start_cell[1] < rows and 0 <= start_cell[0] < cols:
         grid[start_cell[1], start_cell[0]] = 0
-    
+
     print(f"Grid shape: {grid.shape}, Start: {start_cell}, Goal: {goal_cell}")
     print(f"Start cell blocked: {grid[start_cell[1], start_cell[0]] == 1}")
     print(f"Goal cell blocked: {grid[goal_cell[1], goal_cell[0]] == 1}")
@@ -312,9 +341,9 @@ def compute_optimal_path(env, cell_size):
     if not cell_path:
         print("WARNING: A star failed, no path found. Taking direct line.")
         return [(sx, sy), (goal_center[0], goal_center[1])]
-    
+
     print(f"Cell path length: {len(cell_path)} cells")
-    
+
     # Convert cells to real positions
     real_path = []
     for cx, cy in cell_path:
@@ -324,26 +353,26 @@ def compute_optimal_path(env, cell_size):
 
     return real_path
 
+
 def compute_tortuosity(path):
     """
     Compute the tortuosity of a path as total angular change divided by path length.
     """
     path = np.array(path)
-    if len(path) < 3: # not enough points to compute angles
+    if len(path) < 3:  # not enough points to compute angles
         return 0.0
     total_turn = 0.0
-    total_length = 0.0 
+    total_length = 0.0
     for i in range(1, len(path) - 1):
         v1 = path[i] - path[i - 1]
-        v2 = path[i + 1] - path[i] # vectors between points
+        v2 = path[i + 1] - path[i]  # vectors between points
         norm1 = np.linalg.norm(v1)
-        norm2 = np.linalg.norm(v2) # avoid division by zero
-        if norm1 == 0 or norm2 == 0: 
+        norm2 = np.linalg.norm(v2)  # avoid division by zero
+        if norm1 == 0 or norm2 == 0:
             continue
         angle = np.arccos(np.clip(np.dot(v1, v2) / (norm1 * norm2), -1.0, 1.0))
-        total_turn += abs(angle) # accumulate total angular change
-        total_length += norm1   
+        total_turn += abs(angle)  # accumulate total angular change
+        total_length += norm1
     # Add the last segment length
     total_length += np.linalg.norm(path[-1] - path[-2])
-    return total_turn / total_length if total_length > 0 else 0.0 # return average angle change per unit 
-
+    return total_turn / total_length if total_length > 0 else 0.0  # return average angle change per unit
