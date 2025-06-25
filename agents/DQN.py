@@ -6,33 +6,41 @@ import random
 import logging
 from collections import deque
 
+
 class QNetwork(nn.Module):
     """
     Neural Network for approximating Q-values.
     """
+
     def __init__(self, input_dim, output_dim, size="small"):
         super().__init__()
         if size == "small":
             self.net = nn.Sequential(
-                nn.Linear(input_dim, 128), nn.ReLU(),
-                nn.Linear(128, 128), nn.ReLU(),
-                nn.Linear(128, output_dim)
+                nn.Linear(input_dim, 128), nn.ReLU(), nn.Linear(128, 128), nn.ReLU(), nn.Linear(128, output_dim)
             )
         elif size == "large":
             self.net = nn.Sequential(
-                nn.Linear(input_dim, 256), nn.LayerNorm(256), nn.ReLU(),
-                nn.Linear(256, 256), nn.LayerNorm(256), nn.ReLU(),
-                nn.Linear(256, 128), nn.LayerNorm(128), nn.ReLU(),
-                nn.Linear(128, output_dim)
+                nn.Linear(input_dim, 256),
+                nn.LayerNorm(256),
+                nn.ReLU(),
+                nn.Linear(256, 256),
+                nn.LayerNorm(256),
+                nn.ReLU(),
+                nn.Linear(256, 128),
+                nn.LayerNorm(128),
+                nn.ReLU(),
+                nn.Linear(128, output_dim),
             )
 
     def forward(self, x):
         return self.net(x)
 
+
 class ReplayBuffer:
     """
     Replay buffer to store experiences for DQN training.
     """
+
     def __init__(self, capacity):
         """
         Initialize the ReplayBuffer.
@@ -54,16 +62,16 @@ class ReplayBuffer:
         self.buffer.append((state, action, reward, next_state, done))
 
     def sample(self, batch_size, device):
-            samples = random.sample(self.buffer, batch_size)
-            states, actions, rewards, next_states, dones = map(np.array, zip(*samples))
-            return (
-                torch.tensor(states, dtype=torch.float32, device=device),
-                torch.tensor(actions, dtype=torch.int64, device=device).unsqueeze(1),
-                torch.tensor(rewards, dtype=torch.float32, device=device).unsqueeze(1),
-                torch.tensor(next_states, dtype=torch.float32, device=device),
-                torch.tensor(dones, dtype=torch.float32, device=device).unsqueeze(1),
-            )
-            
+        samples = random.sample(self.buffer, batch_size)
+        states, actions, rewards, next_states, dones = map(np.array, zip(*samples))
+        return (
+            torch.tensor(states, dtype=torch.float32, device=device),
+            torch.tensor(actions, dtype=torch.int64, device=device).unsqueeze(1),
+            torch.tensor(rewards, dtype=torch.float32, device=device).unsqueeze(1),
+            torch.tensor(next_states, dtype=torch.float32, device=device),
+            torch.tensor(dones, dtype=torch.float32, device=device).unsqueeze(1),
+        )
+
     def __len__(self):
         """
         Return the current size of the buffer.
@@ -72,14 +80,31 @@ class ReplayBuffer:
         """
         return len(self.buffer)
 
+
 class DQNAgent:
     """
     Deep Q-Network Agent.
     """
-    def __init__(self, obs_dim, n_actions, gamma, epsilon, epsilon_min,
-                epsilon_decay_rate, alpha, batch_size, buffer_size,
-                min_replay_size, target_update_freq, goal_buffer_size, 
-                goal_fraction, device, logger=None, qnet_size="small"):
+
+    def __init__(
+        self,
+        obs_dim,
+        n_actions,
+        gamma,
+        epsilon,
+        epsilon_min,
+        epsilon_decay_rate,
+        alpha,
+        batch_size,
+        buffer_size,
+        min_replay_size,
+        target_update_freq,
+        goal_buffer_size,
+        goal_fraction,
+        device,
+        logger=None,
+        qnet_size="small",
+    ):
         """
         Initialize the DQNAgent.
         Args:
@@ -215,7 +240,7 @@ class DQNAgent:
         """
         Update the target Q-Network by copying the weights from the main Q-Network.
         """
-        self.logger.info(f"Updating target network at step {self.learn_step_counter + self.min_replay_size}")
+        # self.logger.info(f"Updating target network at step {self.learn_step_counter + self.min_replay_size}")
         self.target_q_net.load_state_dict(self.q_net.state_dict())
 
     def decay_epsilon_multiplicative(self):
@@ -235,7 +260,7 @@ class DQNAgent:
         Loads the Q-network weights from a file.
         """
         self.q_net.load_state_dict(torch.load(path, map_location=self.device))
-        self.update_target_network() # update target netwrok
+        self.update_target_network()  # update target netwrok
         self.logger.info(f"Model loaded from {path}")
 
     def save_model(self, path):

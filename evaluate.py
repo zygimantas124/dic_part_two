@@ -22,23 +22,33 @@ def parse_eval_args(argv=None):
         default_model_path = pt_files[0]
 
     p = ArgumentParser(description="Unified Agent Evaluation Script (DQN/PPO)")
-    p.add_argument("--model_path", type=str, default=default_model_path,
-                   help="Path to trained model (.pt). If not specified, uses first found in logs/.")
-    p.add_argument("--algo", type=str, default=None, choices=["dqn", "ppo"],
-                   help="Algorithm type. If not specified, will try to detect from filename.")
-    p.add_argument("--n_episodes", type=int, default=10,
-                   help="Number of episodes to run for evaluation.")
-    p.add_argument("--render_mode", type=str, default=None,
-                   choices=[None, "human", "rgb_array"],
-                   help="Render mode for the environment (e.g., 'human', None).")
-    p.add_argument("--n_actions", type=int, default=8,
-                   help="Number of discrete actions the agent was trained with.")
-    p.add_argument("--eval_epsilon", type=float, default=0.05,
-                   help="Epsilon for exploration during evaluation (DQN only).")
-    p.add_argument("--max_episode_steps", type=int, default=500,
-                   help="Maximum steps per evaluation episode.")
-    p.add_argument("--render_delay", type=float, default=0.03,
-                   help="Delay between frames when rendering (in seconds).")
+    p.add_argument(
+        "--model_path",
+        type=str,
+        default=default_model_path,
+        help="Path to trained model (.pt). If not specified, uses first found in logs/.",
+    )
+    p.add_argument(
+        "--algo",
+        type=str,
+        default=None,
+        choices=["dqn", "ppo"],
+        help="Algorithm type. If not specified, will try to detect from filename.",
+    )
+    p.add_argument("--n_episodes", type=int, default=10, help="Number of episodes to run for evaluation.")
+    p.add_argument(
+        "--render_mode",
+        type=str,
+        default=None,
+        choices=[None, "human", "rgb_array"],
+        help="Render mode for the environment (e.g., 'human', None).",
+    )
+    p.add_argument("--n_actions", type=int, default=8, help="Number of discrete actions the agent was trained with.")
+    p.add_argument(
+        "--eval_epsilon", type=float, default=0.05, help="Epsilon for exploration during evaluation (DQN only)."
+    )
+    p.add_argument("--max_episode_steps", type=int, default=500, help="Maximum steps per evaluation episode.")
+    p.add_argument("--render_delay", type=float, default=0.03, help="Delay between frames when rendering (in seconds).")
 
     args = p.parse_args(argv)
 
@@ -46,6 +56,7 @@ def parse_eval_args(argv=None):
         raise FileNotFoundError("No model file provided and no *.pt file found in logs/")
 
     return args
+
 
 def detect_algorithm_from_filename(filename):
     base = os.path.basename(filename).lower()
@@ -55,7 +66,7 @@ def detect_algorithm_from_filename(filename):
         return "dqn"
     else:
         raise ValueError("Could not detect algorithm type from filename. Please specify --algo explicitly.")
-    
+
 
 def parse_env_config_from_filename(filename):
     base = os.path.basename(filename)
@@ -71,7 +82,7 @@ def parse_env_config_from_filename(filename):
         "reward_delivery": 50.0,
         "reward_carpet": -0.2,
         "render_mode": None,
-        "obs_dim": 5  # default to no raycasting
+        "obs_dim": 5,  # default to no raycasting
     }
 
     if "walls" in base:
@@ -89,6 +100,7 @@ def parse_env_config_from_filename(filename):
 
     return config
 
+
 def load_environment_config(model_path):
     try:
         with open("logs/env_config.json", "r") as f:
@@ -100,7 +112,8 @@ def load_environment_config(model_path):
         config = parse_env_config_from_filename(model_path)
         algo = detect_algorithm_from_filename(model_path)
         return config, algo
-    
+
+
 def create_agent(algo, config, args, obs_dim, device):
     if algo == "ppo":
         return PPOAgent(
@@ -114,7 +127,7 @@ def create_agent(algo, config, args, obs_dim, device):
             epsilon_min=0.01,
             epsilon_decay_rate=1.0,
             device=device,
-            logger=None
+            logger=None,
         )
     else:  # DQN
         return DQNAgent(
@@ -132,18 +145,19 @@ def create_agent(algo, config, args, obs_dim, device):
             device=device,
             goal_buffer_size=50000,
             goal_fraction=0.4,
-            logger=None
+            logger=None,
         )
+
 
 def load_model(agent, algo, model_path, eval_epsilon):
     """Load model with algorithm-specific setup."""
     try:
         agent.load_model(model_path)
-        
+
         if algo == "dqn":
             agent.q_net.eval()
             agent.epsilon = eval_epsilon
-        
+
         print(f"Model loaded successfully from {model_path}")
         return True
     except Exception as e:
@@ -159,6 +173,7 @@ def select_action(agent, algo, obs):
     else:  # DQN
         return agent.select_action(obs)
 
+
 def evaluate_agent(args):
     # Auto-detect algorithm if not specified
     algo = args.algo
@@ -168,7 +183,7 @@ def evaluate_agent(args):
 
     # Load environment configuration
     config, config_algo = load_environment_config(args.model_path)
-    
+
     # Use config algo if we couldn't detect from args
     if args.algo is None and config_algo:
         algo = config_algo
@@ -189,7 +204,7 @@ def evaluate_agent(args):
         reward_step=config.get("reward_step", -0.01),
         reward_collision=config.get("reward_collision", -1.0),
         reward_delivery=config.get("reward_delivery", 50.0),
-        reward_carpet=config.get("reward_carpet", -0.2)
+        reward_carpet=config.get("reward_carpet", -0.2),
     )
 
     obs_dim = env.observation_space.shape[0]
@@ -199,7 +214,7 @@ def evaluate_agent(args):
 
     # Create and load agent
     agent = create_agent(algo, config, args, obs_dim, device)
-    
+
     if not load_model(agent, algo, args.model_path, args.eval_epsilon):
         return
 
@@ -237,7 +252,7 @@ def evaluate_agent(args):
 
             # Select action (algorithm-specific)
             action = select_action(agent, algo, obs)
-            
+
             # Take step
             obs, reward, terminated, truncated, _ = env.step(action)
             done = terminated or truncated
@@ -255,8 +270,10 @@ def evaluate_agent(args):
         episode_lengths.append(steps)
         tortuosities.append(tort)
 
-        print(f"Episode {episode + 1}/{args.n_episodes} - Reward: {total_reward:.2f}, Steps: {steps}, "
-              f"Hausdorff Dist: {hd:.2f} (norm: {hd_norm:.4f}), Tortuosity: {tort:.4f}")
+        print(
+            f"Episode {episode + 1}/{args.n_episodes} - Reward: {total_reward:.2f}, Steps: {steps}, "
+            f"Hausdorff Dist: {hd:.2f} (norm: {hd_norm:.4f}), Tortuosity: {tort:.4f}"
+        )
 
     env.close()
 
@@ -275,12 +292,12 @@ def evaluate_agent(args):
     # Calculate AUC
     episodes_x = np.arange(1, len(episode_rewards) + 1)
     episodes_normalized = (episodes_x - 1) / (len(episode_rewards) - 1) if len(episode_rewards) > 1 else [0]
-    
+
     try:
         auc_learning_curve = np.trapezoid(episode_rewards, episodes_normalized)
     except AttributeError:
-        print("Using np.trapz for AUC calculation (deprecated in numpy 2.0+)") #TODO CHECK IF NEEDEDDDDDDDDDD
-        auc_learning_curve = np.trapz(episode_rewards, episodes_normalized) #deprecated
+        print("Using np.trapz for AUC calculation (deprecated in numpy 2.0+)")  # TODO CHECK IF NEEDEDDDDDDDDDD
+        auc_learning_curve = np.trapz(episode_rewards, episodes_normalized)  # deprecated
 
     # Print summary
     print(f"\n--- {algo.upper()} Evaluation Summary ---")
@@ -289,10 +306,26 @@ def evaluate_agent(args):
     print(f"Min Reward:     {min_reward:.2f}")
     print(f"Max Reward:     {max_reward:.2f}")
     print(f"Avg Steps:      {avg_steps:.2f}")
-    print(f"Avg Hausdorff Dist: {avg_hd:.2f} ± {std_hd:.2f} (normalized: {avg_hd / np.hypot(env.width, env.height):.4f})")
+    print(
+        f"Avg Hausdorff Dist: {avg_hd:.2f} ± {std_hd:.2f} (normalized: {avg_hd / np.hypot(env.width, env.height):.4f})"
+    )
     print(f"Avg Tortuosity: {avg_tort:.4f} ± {std_tort:.2f} (baseline: {baseline_tort:.4f})")
     print(f"AUC Reward: {auc_learning_curve:.2f}")
     print("-----------------------------")
+
+    return {
+        "avg_hausdorff": avg_hd,
+        "std_hausdorff": std_hd,
+        "avg_tortuosity": avg_tort,
+        "std_tortuosity": std_tort,
+        "avg_reward": avg_reward,
+        "std_reward": std_reward,
+        "min_reward": min_reward,
+        "max_reward": max_reward,
+        "avg_steps": avg_steps,
+        "std_steps": std_steps,
+        "auc_reward": auc_learning_curve,
+    }
 
 
 if __name__ == "__main__":
