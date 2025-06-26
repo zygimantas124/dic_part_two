@@ -1,0 +1,11 @@
+{
+    "DQN_walls_no_obst_no_rayc.txt": 428.2221426963806,
+    "DQN_walls_no_obst_rayc.txt": 793.4372007846832,
+    "DQN_walls_obst_no_rayc.txt": 366.1371376514435,
+    "DQN_walls_obst_rayc.txt": 311.88166642189026,
+    "PPO_walls_no_obst_no_rayc.txt": 5.475794076919556,
+    "PPO_walls_no_obst_rayc.txt": 78.5926148891449,
+    "PPO_walls_obst_no_rayc.txt": 6.272432088851929,
+    "PPO_walls_obst_rayc.txt": 81.1573555469513,
+    "working.txt": 280.1901116371155
+}
