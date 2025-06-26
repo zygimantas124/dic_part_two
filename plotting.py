@@ -142,7 +142,7 @@ def main():
         timing_log[os.path.basename(config_file)] = elapsed
         print(f"Elapsed time: {elapsed:.2f} seconds")
 
-    # Save timing log
+    # Creating the file to save the time taken by the algorithm
     with open("training_times.json", "w") as f:
         json.dump(timing_log, f, indent=4)
     print("Saved timing information to training_times.json")
