@@ -10,10 +10,30 @@ This repository provides a complete framework for developing, training, evaluati
 ## Project Structure and Module Overview
 
 ### **Root-Level Scripts**
-
+#### `main.py`
+**Purpose:**  
+*The entry point for training or evaluating agents.*    
+**Details:**  
+- Provides a unified command-line interface for starting both training and evaluation of RL agents.
+- Parses extensive arguments for agent type, environment, hardware, and run modes.
+- Initializes logging and manages logs.
+- Calls the appropriate training or evaluation routine depending on the user's options.
+- Cleans up previous logs, ensuring reproducible runs.
+- Includes sample usage comments for easy command-line experimentation.
 ---
 ## **Key Directories and Their Contents**
-
+- **`main.py:`**  
+The entry point for training or evaluating agents.
+- Provides a unified command-line interface for starting both training and evaluation of RL agents.
+- Parses commad-line arguments for choosing the RL algorithm, environment, hardware, and hyperparameters.
+- Sets up logging and manages experiment life cycle.
+- Calls training or evaluation routines based on user input.
+- Cleans up previous logs, ensuring reproducible runs.
+- Includes sample usage comments for easy command-line experimentation.
+  - Example usage:
+    ```sh
+    python main.py --algo dqn --max_episodes 1000 --env_name open_office_simple --device cuda
+    ```
 ### 1. **Agents**
 
 ### 2. **Office**
