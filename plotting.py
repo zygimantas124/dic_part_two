@@ -16,15 +16,26 @@ REWARD_THRESHOLD = 5.0
 os.makedirs(PLOT_DIR, exist_ok=True)
 
 def parse_config_file(filepath):
-    """Parses a config text file into a flat list of CLI arguments."""
+    """Parses a config file with flags and values on separate lines."""
     args = []
     with open(filepath, 'r') as f:
-        for line in f:
-            line = line.strip()
-            if not line or line.startswith('#'):
-                continue
-            parts = line.split()
-            args.extend(parts)
+        lines = [line.strip() for line in f if line.strip() and not line.strip().startswith('#')]
+
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if line.startswith('--'):
+            # Check if next line exists and is not another flag
+            if i + 1 < len(lines) and not lines[i + 1].startswith('--'):
+                args.extend([line, lines[i + 1]])
+                i += 2
+            else:
+                # It's a flag without a value (like --show_walls)
+                args.append(line)
+                i += 1
+        else:
+            print(f"Warning: Unexpected line format in config: {line}")
+            i += 1
     return args
 
 def run_training(args):
