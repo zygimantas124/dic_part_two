@@ -45,7 +45,7 @@ Provides a manual control interface using keyboard input (via pygame)..
 
 ---
 
-- **`plotting.py`**  
+- **`plotting.py:`**  
 Automates experiment analysis and visualization.
   - Reads log files, computes metrics, and generates plots for reward, success rate, etc.
   - Saves plots to the `final_plots/` directory.
@@ -54,7 +54,13 @@ Automates experiment analysis and visualization.
 
 ## **Key Directories and Their Contents**
 
-### 1. **Agents**
+### 1. **Agents (RL Agent Implementation)**
+- **`DQN.py`**  
+Implements the Deep Q-Network (DQN) agent. 
+  - Defines the neural network (QNetwork) for Q-value estimation.
+  - Implements a replay buffer to store and sample past experiences, critical for stable training.
+  - Defines neural network architectures for value estimation.
+  - Encapsulates sampling, learning, and action selection logic.
 
 ### 2. **Office**
 
