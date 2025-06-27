@@ -9,14 +9,19 @@ class ActorCriticNetwork(nn.Module):
     def __init__(self, input_dim, n_actions, hidden_size=128):
         super().__init__()
 
-        self.shared = nn.Sequential(nn.Linear(input_dim, hidden_size), nn.ReLU(), nn.Linear(hidden_size, hidden_size), nn.ReLU())
+        self.shared = nn.Sequential(
+            nn.Linear(input_dim, hidden_size),
+            nn.ReLU(),
+            nn.Linear(hidden_size, hidden_size),
+            nn.ReLU(),
+        )
         self.actor = nn.Sequential(nn.Linear(hidden_size, n_actions), nn.Softmax(dim=-1))
         self.critic = nn.Linear(hidden_size, 1)
 
     def forward(self, x):
-        shared_out = self.shared(x) # Shared layers for both actor and critic
-        action_probs = self.actor(shared_out) # Output action probabilities (pi(a|s))
-        state_value = self.critic(shared_out) # Output state value (V(s))
+        shared_out = self.shared(x)
+        action_probs = self.actor(shared_out)
+        state_value = self.critic(shared_out)
         return action_probs, state_value
 
 
@@ -57,117 +62,83 @@ class PPOAgent:
         epsilon_decay_rate,
         device,
         logger,
+        weight_terminated=2.0,
+        weight_truncated=0.5,
     ):
-        self.gamma = gamma  # Discount factor, typically around 0.99
-        self.clip_eps = clip_eps  # Clipping epsilon for PPO, typically around 0.2
-        self.update_epochs = update_epochs  # Number of epochs to update the policy per batch, typically 10
-        self.batch_size = batch_size  # Batch size for training, typically 64 or 128
-        self.entropy_coef = epsilon  # Coefficient for the entropy term, typically 0.2
-        self.entropy_decay = epsilon_decay_rate  # Decay rate for the entropy coefficient, typically 0.99
-        self.min_entropy_coef = epsilon_min  # Minimum value for the entropy coefficient, typically 0.01
+        self.gamma = gamma
+        self.clip_eps = clip_eps
+        self.update_epochs = update_epochs
+        self.batch_size = batch_size
+        self.entropy_coef = epsilon
+        self.entropy_decay = epsilon_decay_rate
+        self.min_entropy_coef = epsilon_min
+        self.weight_terminated = weight_terminated
+        self.weight_truncated = weight_truncated
 
-        if device:
-            self.device = device
-        elif torch.cuda.is_available():
-            self.device = torch.device("cuda")
-        elif torch.backends.mps.is_available():
-            self.device = torch.device("mps")
-        else:
-            self.device = torch.device("cpu")
+        self.device = (
+            device
+            if device
+            else torch.device(
+                "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+            )
+        )
 
         print(f"Using device: {self.device}")
 
-        # Initialize the actor-critic network
         self.actor_critic = ActorCriticNetwork(obs_dim, n_actions).to(self.device)
-        self.optimizer = optim.Adam(self.actor_critic.parameters(), lr=1e-3)
+        self.optimizer = optim.Adam(self.actor_critic.parameters(), lr=3e-4)
 
-        # Initialize the rollout buffer
         self.buffer = RolloutBuffer()
         self.logger = logger or logging.getLogger(__name__)
 
     def select_action(self, state):
-        """
-        Select an action based on the current state using the actor-critic network.
-        Args:
-            state (np.ndarray): The current state of the environment.
-        Returns:
-            action (int): Selected action.
-            log_prob (float): Log probability of the selected action.
-            state_value (float): Estimated value of the current state.
-        """
         state_tensor = torch.tensor(state, dtype=torch.float32).unsqueeze(0).to(self.device)
         with torch.no_grad():
-            action_probs, state_value = self.actor_critic(state_tensor) # Forward pass, actor-critic network
+            action_probs, state_value = self.actor_critic(state_tensor)
 
-        # Sample action from the action probabilities
-        dist = torch.distributions.Categorical(action_probs) 
-        action = dist.sample() 
+        dist = torch.distributions.Categorical(action_probs)
+        action = dist.sample()
         log_prob = dist.log_prob(action)
 
         return action.item(), log_prob.item(), state_value.item()
 
     def store_transition(self, state, action, log_prob, reward, done, value, terminated=False):
-        """
-        Store a transition, and its information in the rollout buffer.
-        Args:
-            state (np.ndarray): The current state of the environment.
-            action (int): The action taken.
-            log_prob (float): Log probability of the action taken.
-            reward (float): Reward received after taking the action.
-            done (bool): Tells if the episode has ended.
-            value (float): Estimated value of the current state.
-            terminated (bool): True when the episode was terminated by an environment condition.
-        Returns:
-            None
-        """
         self.buffer.add(state, action, log_prob, reward, done, value, terminated)
 
     def compute_returns_and_advantages(self, last_value=0, normalize_advantage=True):
-        """
-        For each transition in the buffer, compute the returns and advantages.
-        Args:
-            last_value (float): The value of the last state to compute the return for the last transition.
-            normalize_advantage (bool): To normalize the advantages for stability.
-        Returns:
-            returns (torch.Tensor): The computed returns for each transition.
-            advantages (torch.Tensor): The computed advantages for each transition.
-        """
         returns = []
         advantages = []
-        G = last_value # Discounted return, initialized to the last value
-        A = 0 # Generalized Advantage Estimation (GAE)
-        values = self.buffer.values + [last_value] 
-
-        # TD error → tells the critic how surprised it should be.
-        # Discounted return → tells what really happened → used to train the critic.
-        # GAE → gives the actor a “smoothed” signal about which actions were good or bad → improves actor learning.
+        G = last_value
+        A = 0
+        values = self.buffer.values + [last_value]
 
         for t in reversed(range(len(self.buffer.rewards))):
-            delta = self.buffer.rewards[t] + self.gamma * values[t + 1] * (1 - self.buffer.dones[t]) - values[t]  # TD
-            A = delta + self.gamma * A * (1 - self.buffer.dones[t])  # GAE
-            G = self.buffer.rewards[t] + self.gamma * G * (1 - self.buffer.dones[t])  # Discounted Return
+            delta = self.buffer.rewards[t] + self.gamma * values[t + 1] * (1 - self.buffer.dones[t]) - values[t]
+            A = delta + self.gamma * A * (1 - self.buffer.dones[t])
+            G = self.buffer.rewards[t] + self.gamma * G * (1 - self.buffer.dones[t])
             returns.insert(0, G)
             advantages.insert(0, A)
 
         returns = torch.tensor(returns, dtype=torch.float32).to(self.device)
         advantages = torch.tensor(advantages, dtype=torch.float32).to(self.device)
 
-        if normalize_advantage:  # Improve learning stability by normalizing advantages
+        if normalize_advantage:
             advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
 
         return returns, advantages
 
     def learn(self):
-        """
-        Update the actor-critic network, making use of the transitions which are in the buffer.
-        """
         states = torch.tensor(np.array(self.buffer.states), dtype=torch.float32).to(self.device)
         actions = torch.tensor(self.buffer.actions, dtype=torch.long).to(self.device)
         old_log_probs = torch.tensor(self.buffer.log_probs, dtype=torch.float32).to(self.device)
 
         returns, advantages = self.compute_returns_and_advantages()
 
-        # Training loop
+        weights = torch.tensor(
+            [self.weight_terminated if t else self.weight_truncated for t in self.buffer.terminated],
+            dtype=torch.float32,
+        ).to(self.device)
+
         for _ in range(self.update_epochs):
             idxs = np.arange(len(states))
             np.random.shuffle(idxs)
@@ -175,39 +146,33 @@ class PPOAgent:
             for start in range(0, len(states), self.batch_size):
                 end = start + self.batch_size
                 batch_idx = idxs[start:end]
-                
-                # Get batch data
-                batch_states = states[batch_idx] # 
+
+                batch_states = states[batch_idx]
                 batch_actions = actions[batch_idx]
                 batch_old_log_probs = old_log_probs[batch_idx]
                 batch_returns = returns[batch_idx]
                 batch_advantages = advantages[batch_idx]
+                batch_weights = weights[batch_idx]
 
-                # Forward pass
                 action_probs, state_values = self.actor_critic(batch_states)
                 dist = torch.distributions.Categorical(action_probs)
 
                 new_log_probs = dist.log_prob(batch_actions)
                 entropy = dist.entropy().mean()
 
-                # Ratio for clipped objective
                 ratio = torch.exp(new_log_probs - batch_old_log_probs)
-
-                # Clipped surrogate objective
                 surr1 = ratio * batch_advantages
                 surr2 = torch.clamp(ratio, 1.0 - self.clip_eps, 1.0 + self.clip_eps) * batch_advantages
-                actor_loss = -torch.min(surr1, surr2).mean()
+                actor_loss = -(batch_weights * torch.min(surr1, surr2)).mean()
 
-                # Critic loss
-                critic_loss = nn.functional.mse_loss(state_values.squeeze(), batch_returns)
+                critic_loss = (batch_weights * (state_values.squeeze(-1) - batch_returns).pow(2)).mean()
 
-                # Total loss
                 self.entropy_coef = max(self.entropy_coef * self.entropy_decay, self.min_entropy_coef)
                 total_loss = actor_loss + 0.5 * critic_loss - self.entropy_coef * entropy
 
-                # Optimize actor + critic
                 self.optimizer.zero_grad()
                 total_loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.actor_critic.parameters(), max_norm=0.5)  # Gradient clipping
                 self.optimizer.step()
 
         self.buffer.clear()
@@ -220,3 +185,5 @@ class PPOAgent:
         self.actor_critic.load_state_dict(torch.load(path, map_location=self.device))
         print(f"Model loaded from {path}")
 
+
+# python main.py --device cpu --algo ppo --gamma 0.99 --max_episodes 3000 --max_episode_steps 2048 --k_epochs 3 --batch_size 512 --seed 42 --epsilon_start 0.05 --epsilon_min 0.01 --epsilon_decay 0.995

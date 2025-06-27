@@ -5,21 +5,19 @@ cpu
 --gamma
 0.99
 --max_episodes
-500
+1000
 --max_episode_steps
-1024
+2048
 --k_epochs
-5
+2
 --batch_size
 256
---eps_clip
-0.2
 --seed
 42
 --epsilon_start
-0.5
---epsilon_min
 0.1
+--epsilon_min
+0.01
 --epsilon_decay
 0.995
 # env config
