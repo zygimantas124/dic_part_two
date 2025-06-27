@@ -184,6 +184,3 @@ class PPOAgent:
     def load_model(self, path):
         self.actor_critic.load_state_dict(torch.load(path, map_location=self.device))
         print(f"Model loaded from {path}")
-
-
-# python main.py --device cpu --algo ppo --gamma 0.99 --max_episodes 3000 --max_episode_steps 2048 --k_epochs 3 --batch_size 512 --seed 42 --epsilon_start 0.05 --epsilon_min 0.01 --epsilon_decay 0.995

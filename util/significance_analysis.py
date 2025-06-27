@@ -117,13 +117,3 @@ if __name__ == "__main__":
         print(f"{k.capitalize():<12}: {v['mean']:.4f} ± {v['ci']:.4f} (95% CI over {v['n']} runs)")
 
     save_results_to_json(summary, args, raw_scores)
-
-# python util/significance_analysis.py @experiments/DQN_walls_no_obst_no_rayc.txt
-# python util/significance_analysis.py @experiments/DQN_walls_no_obst_rayc.txt
-# python util/significance_analysis.py @experiments/DQN_walls_obst_no_rayc.txt
-# python util/significance_analysis.py @experiments/DQN_walls_obst_rayc.txt
-
-# python util/significance_analysis.py @experiments/PPO_walls_no_obst_no_rayc.txt
-# python util/significance_analysis.py @experiments/PPO_walls_no_obst_rayc.txt
-# python util/significance_analysis.py @experiments/PPO_walls_obst_no_rayc.txt
-# python util/significance_analysis.py @experiments/PPO_walls_obst_rayc.txt
