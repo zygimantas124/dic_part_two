@@ -23,6 +23,8 @@ The entry point for training or evaluating agents.
     python main.py --algo dqn --max_episodes 1000 --env_name open_office_simple --device cuda
     ```
 
+---
+
 - **`evaluate.py:`**  
 Script for evaluating trained agents (for both DQN and PPO).
   - Loads a trained model and runs evaluation episodes.
@@ -32,6 +34,16 @@ Script for evaluating trained agents (for both DQN and PPO).
     ```sh
     python evaluate.py --model_path logs/model.pth --n_episodes 10
     ```
+
+---
+
+#### `manual_control.py`
+Provides a manual control interface using keyboard input (via pygame)..  
+  - Lets a user drive the robot in the simulated environment using the keyboard.
+  - Offers debug printing of state, table delivery, and raycasting data.
+  - Very helpful for the cases of demonstration, debugging, and environment exploration.
+
+
 ## **Key Directories and Their Contents**
 
 ### 1. **Agents**
