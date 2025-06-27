@@ -296,8 +296,7 @@ def evaluate_agent(args):
     try:
         auc_learning_curve = np.trapezoid(episode_rewards, episodes_normalized)
     except AttributeError:
-        print("Using np.trapz for AUC calculation (deprecated in numpy 2.0+)")  # TODO CHECK IF NEEDEDDDDDDDDDD
-        auc_learning_curve = np.trapz(episode_rewards, episodes_normalized)  # deprecated
+        print("Could not use np.trapezoid, try using np.trapz for AUC calculation (however its deprecated in numpy 2.0+)")
 
     # Print summary
     print(f"\n--- {algo.upper()} Evaluation Summary ---")
