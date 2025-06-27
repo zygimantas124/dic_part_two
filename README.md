@@ -9,6 +9,8 @@ This repository provides a complete framework for developing, training, evaluati
 
 ## Project Structure and Module Overview
 
+[General Note on the project: while running  the files make sure that you are not using GPU, and instead all the code runs on CPU. Running the project on a GPU device takes much longer than running it on CPU]
+
 ### **Root-Level Scripts**
 - **`main.py:`**  
 The entry point for training or evaluating agents.
