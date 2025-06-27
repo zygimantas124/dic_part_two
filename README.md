@@ -130,6 +130,11 @@ Manages the agent-environment training cycle.
 
 - **`significance_analysis.py`**  
 Supports statistical analysis of experimental results.
+  - Example usage:
+  ```sh 
+  python util/significance_analysis.py @experiments/DQN_walls_obst_rayc.txt
+  python util/significance_analysis.py @experiments/PPO_walls_no_obst_no_rayc.txt
+  ```
 
 [Note: running this file might take a long time due to the comprehensive analysis it does, you can see the result of running this file on the report].
   - Runs multiple repeats of training/evaluation to measure metrics variability.
