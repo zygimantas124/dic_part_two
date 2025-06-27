@@ -108,6 +108,17 @@ class DeliveryRobotEnv(gym.Env):
         return self._get_obs(), {}
 
     def step(self, action):
+        """
+        Take a step in the environment based on the action.
+        Args:
+            action (int): Discrete action representing the direction to move.
+        Returns:
+            obs (np.ndarray): Observation after the action.
+            reward (float): Reward for the action.
+            done (bool): Whether the episode has ended.
+            truncated (bool): Whether the episode was truncated.
+        """
+
         # Apply movement based on discrete angular direction
         movement = self.directions[action] * self.step_size
         self.angle_rad = math.atan2(movement[1], movement[0])
@@ -121,14 +132,15 @@ class DeliveryRobotEnv(gym.Env):
             or proposed_pos[1] > self.height - self.robot_radius
         )
 
+        # Calculate reward based on collisions and delivery success
         reward = self.reward_step
-        if hit_boundary or self._check_collision(proposed_pos):
+        if hit_boundary or self._check_collision(proposed_pos): # Collision check
             reward += self.reward_collision
         else:
             self.robot_pos = proposed_pos
             if self._on_carpet():
                 reward += self.reward_carpet
-            reward += self._check_table_delivery()
+            reward += self._check_table_delivery() # Delivery check
 
         self.total_reward += reward
         self.step_count += 1
@@ -156,11 +168,16 @@ class DeliveryRobotEnv(gym.Env):
         return np.array(obs, dtype=np.float32)
 
     def get_cone_ray_distances(self):
-        """Cast rays in a cone and return normalized distances to nearest obstacles."""
+        """
+        Cast rays in a cone and return normalized distances to nearest obstacles.
+        Returns:
+            Ray_distances (list): Normalized distances to the nearest obstacles in the cone.
+        """
         px, py = float(self.robot_pos[0]), float(self.robot_pos[1])
         center_ang = self.angle_rad
         cone_rad = math.radians(self.ray_config["cone_width_deg"])
 
+        # Cast rays in a cone shape
         pts, types = cast_cone_rays(
             robot_pos=(px, py),
             wall_rects=self.walls + self.tables,
@@ -172,12 +189,15 @@ class DeliveryRobotEnv(gym.Env):
             robot_radius=self.robot_radius,
         )
 
+        # Calculate distances for each ray
         ray_distances = []
         half_cone = cone_rad / 2
         for i, (ix, iy) in enumerate(pts):
-            dist = math.hypot(ix - px, iy - py) if types[i] in ("wall", "circle") else self.ray_config["max_distance"]
-            ray_ang = center_ang - half_cone + i * (cone_rad / (self.ray_config["num_rays"] - 1))
-            dx, dy = math.cos(ray_ang), math.sin(ray_ang)
+            # Calculate the distance to the intersection point
+            dist = math.hypot(ix - px, iy - py) if types[i] in ("wall", "circle") else self.ray_config["max_distance"] 
+            ray_ang = center_ang - half_cone + i * (cone_rad / (self.ray_config["num_rays"] - 1)) # Calculate angle for each ray
+            dx, dy = math.cos(ray_ang), math.sin(ray_ang) 
+
             for cx, cy, cw, ch in self.carpets:
                 t = _intersect_ray_rect(px, py, dx, dy, cx, cy, cw, ch)
                 if t is not None and 0 <= t < dist:
@@ -188,42 +208,63 @@ class DeliveryRobotEnv(gym.Env):
         return ray_distances
 
     def _check_collision(self, pos):
-        """Check if the given position collides with walls, obstacles, or tables."""
+        """
+        Check if the given position collides with walls, obstacles, or tables.
+        Args:
+            pos (tuple): The (x, y) position to check for collisions.
+        Returns:
+            bool: True if there is a collision.
+        """
         x, y = pos
+        # Check for walls
         for wx, wy, ww, wh in self.walls:
             if (
                 wx - self.robot_radius <= x <= wx + ww + self.robot_radius
                 and wy - self.robot_radius <= y <= wy + wh + self.robot_radius
             ):
                 return True
+            
+        # Check for (circulaar) obstacles
         for ox, oy, orad in self.obstacles:
             if np.linalg.norm(pos - np.array([ox, oy])) < orad + self.robot_radius:
                 return True
+            
+        # Check for tables
         for tx, ty, tw, th in self.tables:
             m = self.robot_radius
             if (tx + m <= x <= tx + tw - m) and (ty + m <= y <= ty + th - m):
                 return True
+            
         return False
 
     def _on_carpet(self):
-        """Check whether the robot is currently on a carpet."""
+        """
+        Check whether the robot is currently on a carpet.
+        Returns:
+            bool: True if the robot is on a carpet.
+        """
         x, y = self.robot_pos
         return any(cx <= x <= cx + cw and cy <= y <= cy + ch for cx, cy, cw, ch in self.carpets)
 
     def _check_table_delivery(self):
-        """Check if the robot is within delivery range of any table."""
+        """Check if the robot is within delivery range of any table.
+        Returns:
+            float: Reward received for succesful delivery, 0 if no succesful delivery.
+        """
         reward = 0
         margin = self.robot_radius * 4
         for i, (tx, ty, tw, th) in enumerate(self.tables):
             if i not in self.delivered_tables:
-                rx, ry = self.robot_pos
+                rx, ry = self.robot_pos # Robot position
                 if (tx - margin <= rx <= tx + tw + margin) and (ty - margin <= ry <= ty + th + margin):
                     self.delivered_tables.add(i)
-                    reward += self.reward_delivery
+                    reward += self.reward_delivery # Reward for delivery
         return reward
 
     def render(self):
         """Render the environment and optionally visualize rays."""
+        
+        # Specified in arguments
         if self.render_mode != "human":
             return
         if pygame.get_init():
@@ -234,9 +275,10 @@ class DeliveryRobotEnv(gym.Env):
             self.window = pygame.display.set_mode((self.width, self.height))
             self.clock = pygame.time.Clock()
             self.font = pygame.font.Font(None, 24)
-
+        
         render_environment(self)
 
+        # When not using raycasting, use default rendering
         if not self.use_raycasting:
             pygame.display.flip()
             self.clock.tick(self.metadata["render_fps"])
@@ -249,13 +291,13 @@ class DeliveryRobotEnv(gym.Env):
 
         pts, _ = cast_cone_rays(
             robot_pos=(px, py),
-            wall_rects=self.walls + self.tables,
+            wall_rects=self.walls + self.tables, 
             circle_obstacles=self.obstacles,
-            center_angle=center_ang,
-            cone_width=cone_rad,
-            num_rays=self.ray_config["render_rays"],
-            max_distance=self.ray_config["max_distance"],
-            robot_radius=self.robot_radius,
+            center_angle=center_ang, # Robot current orientation
+            cone_width=cone_rad, # Cone width in radians
+            num_rays=self.ray_config["render_rays"], # Number of rays to render
+            max_distance=self.ray_config["max_distance"], # Maximum distance for rays
+            robot_radius=self.robot_radius, # Robot radius, for collision detection
         )
 
         if self.use_flashlight:
