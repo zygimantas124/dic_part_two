@@ -37,11 +37,19 @@ Script for evaluating trained agents (for both DQN and PPO).
 
 ---
 
-#### `manual_control.py`
+- **`manual_control.py:`**
 Provides a manual control interface using keyboard input (via pygame)..  
   - Lets a user drive the robot in the simulated environment using the keyboard.
   - Offers debug printing of state, table delivery, and raycasting data.
   - Very helpful for the cases of demonstration, debugging, and environment exploration.
+
+---
+
+- **`plotting.py`**  
+Automates experiment analysis and visualization.
+  - Reads log files, computes metrics, and generates plots for reward, success rate, etc.
+  - Saves plots to the `final_plots/` directory.
+  - Can batch process multiple experiment configurations in one run.
 
 
 ## **Key Directories and Their Contents**
