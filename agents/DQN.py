@@ -62,14 +62,22 @@ class ReplayBuffer:
         self.buffer.append((state, action, reward, next_state, done))
 
     def sample(self, batch_size, device):
-        samples = random.sample(self.buffer, batch_size)
-        states, actions, rewards, next_states, dones = map(np.array, zip(*samples))
+        """
+        Sample a batch of experiences from the buffer.
+        Args:
+            batch_size (int): Number of experiences to sample.
+            device (torch.device): Device where to move tensor.
+        Returns:
+            tuple: Tuple containing tensors for states, actions, rewards, next_states, and dones.
+        """
+        samples = random.sample(self.buffer, batch_size) # Sample a random batch
+        states, actions, rewards, next_states, dones = map(np.array, zip(*samples)) 
         return (
             torch.tensor(states, dtype=torch.float32, device=device),
             torch.tensor(actions, dtype=torch.int64, device=device).unsqueeze(1),
             torch.tensor(rewards, dtype=torch.float32, device=device).unsqueeze(1),
             torch.tensor(next_states, dtype=torch.float32, device=device),
-            torch.tensor(dones, dtype=torch.float32, device=device).unsqueeze(1),
+            torch.tensor(dones, dtype=torch.float32, device=device).unsqueeze(1), 
         )
 
     def __len__(self):
@@ -83,11 +91,11 @@ class ReplayBuffer:
 
 class DQNAgent:
     """
-    Deep Q-Network Agent.
+    Deep Q-Network Agent with experience replay and target network updates.
     """
 
     def __init__(
-        self,
+        self, 
         obs_dim,
         n_actions,
         gamma,
@@ -183,7 +191,7 @@ class DQNAgent:
             done (bool): Whether the episode has ended.
         """
         self.replay_buffer.add(state, action, reward, next_state, done)
-        if reward > 0:
+        if reward > 0: # Store only positive rewards in the goal buffer
             self.goal_buffer.add(state, action, reward, next_state, done)
 
     def _can_learn(self):
@@ -200,9 +208,10 @@ class DQNAgent:
         if not self._can_learn():
             return None  # Not enough samples to learn
 
-        n_goal = int(self.batch_size * self.goal_fraction)
-        n_main = self.batch_size - n_goal
+        n_goal = int(self.batch_size * self.goal_fraction) # Number of samples to take
+        n_main = self.batch_size - n_goal # Ensure total batch size does not exceed batch_size
 
+        # Sample from goal buffer when it has enough, otherwise sample from main replay buffer
         if len(self.goal_buffer) >= n_goal:
             goal_samples = self.goal_buffer.sample(n_goal, self.device)
         else:
@@ -222,17 +231,19 @@ class DQNAgent:
             next_q_values_target = self.target_q_net(next_states).gather(1, next_actions)
             target_q = rewards + self.gamma * next_q_values_target * (1 - dones)
 
+        # Calculate current Q values
         current_q = self.q_net(states).gather(1, actions)
         loss = nn.functional.mse_loss(current_q, target_q)
 
+        # Backpropagation
         self.optimizer.zero_grad()
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.q_net.parameters(), max_norm=1.0)
+        torch.nn.utils.clip_grad_norm_(self.q_net.parameters(), max_norm=1.0) # Prevent exploding gradient
         self.optimizer.step()
 
         self.learn_step_counter += 1
         if self.learn_step_counter % self.target_update_freq == 0:
-            self.update_target_network()
+            self.update_target_network() # Update target network periodically
 
         return loss.item()
 
