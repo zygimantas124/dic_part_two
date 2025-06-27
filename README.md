@@ -62,6 +62,15 @@ Implements the Deep Q-Network (DQN) agent.
   - Defines neural network architectures for value estimation.
   - Encapsulates sampling, learning, and action selection logic.
 
+---
+
+- **`PPO.py`**  
+Implements the Proximal Policy Optimization (PPO) agent. 
+  - Contains the PPOAgent class and Actor-Critic neural network.
+  - Implements the Proximal Policy Optimization algorithm.
+  - Uses a rollout buffer for trajectory storage.
+  - Handles policy and value updates, action sampling, and advantage calculation.
+
 ### 2. **Office**
 
 ### 3. **Experiments**
