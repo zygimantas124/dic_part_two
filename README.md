@@ -20,11 +20,21 @@ The entry point for training or evaluating agents.
 - Calls training or evaluation routines based on user input.
 - Cleans up previous logs, ensuring reproducible runs.
 - Includes sample usage comments for easy command-line experimentation.
-  - Example usage:
-    ```sh
-    python main.py --algo dqn --max_episodes 1000 --env_name open_office_simple --device cuda
-    ```
-
+  - Example usage (For a list of all the arguments that can be passed to the models please check the corresponding file):
+    - Training Only:
+        ```sh
+        python main.py --algo dqn --max_episodes 1000 --env_name open_office_simple --device cuda
+        python main.py --algo ppo --gamma 0.99 --max_episodes 1000 --max_episode_steps 4096 --k_epochs 5 --batch_size 512 --eps_clip 0.2 --seed 42 --epsilon_start 1 --epsilon_min 0.1 --epsilon_decay 0.999 --device cpu
+        ```
+    - Evaluation only (load existing model)
+        ```sh
+        python main.py --algo name --evaluate_only --load_model_path logs/my_model.pth --eval_episodes 20 --device cuda
+        ```
+    - Train then Evaluate (xomplete pipeline - with and without saving)
+        ```sh
+        python main.py --algo ppo --max_episodes 80 --evaluate_after_training --eval_episodes 10 --device cuda
+        python main.py --algo ppo --max_episodes 80 --evaluate_after_training --eval_episodes 10 --save_model_path logs/my_model --device cuda
+        ```
 ---
 
 - **`evaluate.py:`**  
@@ -34,7 +44,7 @@ Script for evaluating trained agents (for both DQN and PPO).
   - Prints detailed statistical summaries, including learning curve area-under-curve.
   - Example usage:
     ```sh
-    python evaluate.py --model_path logs/model.pth --n_episodes 10
+    python evaluate.py --model_path logs/my_model.pth --n_episodes 10
     ```
 
 ---
