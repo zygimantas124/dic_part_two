@@ -331,6 +331,3 @@ def evaluate_agent(args):
 if __name__ == "__main__":
     args = parse_eval_args()
     evaluate_agent(args)
-
-
-# Run this script with: python evaluate.py --model_path logs/your_model.pth --n_episodes 10
