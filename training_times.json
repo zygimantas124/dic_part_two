@@ -1,10 +1,10 @@
 {
-    "DQN_walls_no_obst_no_rayc.txt": 1072.6662378311157,
-    "DQN_walls_no_obst_rayc.txt": 464.770131111145,
-    "DQN_walls_obst_no_rayc.txt": 450.51677894592285,
-    "DQN_walls_obst_rayc.txt": 272.61223244667053,
-    "PPO_walls_no_obst_no_rayc.txt": 391.5037841796875,
-    "PPO_walls_no_obst_rayc.txt": 876.7355968952179,
-    "PPO_walls_obst_no_rayc.txt": 328.8459486961365,
-    "PPO_walls_obst_rayc.txt": 919.7454121112823
+    "DQN_walls_no_obst_no_rayc.txt": 360.86873483657837,
+    "DQN_walls_no_obst_rayc.txt": 596.4339311122894,
+    "DQN_walls_obst_no_rayc.txt": 364.42080640792847,
+    "DQN_walls_obst_rayc.txt": 298.1036202907562,
+    "PPO_walls_no_obst_no_rayc.txt": 172.5667757987976,
+    "PPO_walls_no_obst_rayc.txt": 709.0630531311035,
+    "PPO_walls_obst_no_rayc.txt": 165.854909658432,
+    "PPO_walls_obst_rayc.txt": 548.8013677597046
 }
