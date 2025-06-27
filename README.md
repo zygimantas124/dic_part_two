@@ -93,7 +93,9 @@ Provides mathematical routines for simulating robot sensors.*
   - Used to provide agents with distance-to-obstacle information in their observations.
 
 ### 3. **Experiments**
-
+  - Contains configuration files for batch-running experiments.
+  - Each `.txt` file defines a set of hyperparameters and environment settings.
+  
 ### 4. **Saved Qnets**  
 
 ### 5. **Final Plots**  
@@ -101,3 +103,38 @@ Provides mathematical routines for simulating robot sensors.*
 ### 6. **Results**  
 
 ### 7. **Util**
+
+- **`delivery_env.py`**  
+Defines the main delivery robot environment for RL training.
+  - Inherits from Gymnasium’s Env class for compatibility with standard RL workflows.
+  - Manages all aspects of the simulation: world layout, robot movement, object placement, reward calculation, and state observation.
+  - Supports multiple configuration options for walls, obstacles, carpets, and ray-based sensors.
+  - Integrates with rendering and raycasting modules for visualization and rich observations.
+
+---
+
+- **`render.py`**  
+Handles rendering and visualization of the environment.  
+  - Uses pygame to draw the environment, robot, and objects.
+
+---
+
+- **`raycasting.py`**  
+Provides mathematical routines for simulating robot sensors.* 
+  - Implements ray-segment intersection logic,  simulating lidar-like sensors.
+  - Used to provide agents with distance-to-obstacle information in their observations.
+  
+  Implements the Deep Q-Network (DQN) agent. 
+  - Defines the neural network (QNetwork) for Q-value estimation.
+  - Implements a replay buffer to store and sample past experiences, critical for stable training.
+  - Defines neural network architectures for value estimation.
+  - Encapsulates sampling, learning, and action selection logic.
+
+---
+
+- **`PPO.py`**  
+Implements the Proximal Policy Optimization (PPO) agent. 
+  - Contains the PPOAgent class and Actor-Critic neural network.
+  - Implements the Proximal Policy Optimization algorithm.
+  - Uses a rollout buffer for trajectory storage.
+  - Handles policy and value updates, action sampling, and advantage calculation.
