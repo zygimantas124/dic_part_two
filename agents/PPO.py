@@ -14,9 +14,9 @@ class ActorCriticNetwork(nn.Module):
         self.critic = nn.Linear(hidden_size, 1)
 
     def forward(self, x):
-        shared_out = self.shared(x)
-        action_probs = self.actor(shared_out)
-        state_value = self.critic(shared_out)
+        shared_out = self.shared(x) # Shared layers for both actor and critic
+        action_probs = self.actor(shared_out) # Output action probabilities (pi(a|s))
+        state_value = self.critic(shared_out) # Output state value (V(s))
         return action_probs, state_value
 
 
@@ -77,32 +77,66 @@ class PPOAgent:
 
         print(f"Using device: {self.device}")
 
+        # Initialize the actor-critic network
         self.actor_critic = ActorCriticNetwork(obs_dim, n_actions).to(self.device)
         self.optimizer = optim.Adam(self.actor_critic.parameters(), lr=1e-3)
 
+        # Initialize the rollout buffer
         self.buffer = RolloutBuffer()
         self.logger = logger or logging.getLogger(__name__)
 
     def select_action(self, state):
+        """
+        Select an action based on the current state using the actor-critic network.
+        Args:
+            state (np.ndarray): The current state of the environment.
+        Returns:
+            action (int): Selected action.
+            log_prob (float): Log probability of the selected action.
+            state_value (float): Estimated value of the current state.
+        """
         state_tensor = torch.tensor(state, dtype=torch.float32).unsqueeze(0).to(self.device)
         with torch.no_grad():
-            action_probs, state_value = self.actor_critic(state_tensor)
+            action_probs, state_value = self.actor_critic(state_tensor) # Forward pass, actor-critic network
 
-        dist = torch.distributions.Categorical(action_probs)
-        action = dist.sample()
+        # Sample action from the action probabilities
+        dist = torch.distributions.Categorical(action_probs) 
+        action = dist.sample() 
         log_prob = dist.log_prob(action)
 
         return action.item(), log_prob.item(), state_value.item()
 
     def store_transition(self, state, action, log_prob, reward, done, value, terminated=False):
+        """
+        Store a transition, and its information in the rollout buffer.
+        Args:
+            state (np.ndarray): The current state of the environment.
+            action (int): The action taken.
+            log_prob (float): Log probability of the action taken.
+            reward (float): Reward received after taking the action.
+            done (bool): Tells if the episode has ended.
+            value (float): Estimated value of the current state.
+            terminated (bool): True when the episode was terminated by an environment condition.
+        Returns:
+            None
+        """
         self.buffer.add(state, action, log_prob, reward, done, value, terminated)
 
     def compute_returns_and_advantages(self, last_value=0, normalize_advantage=True):
+        """
+        For each transition in the buffer, compute the returns and advantages.
+        Args:
+            last_value (float): The value of the last state to compute the return for the last transition.
+            normalize_advantage (bool): To normalize the advantages for stability.
+        Returns:
+            returns (torch.Tensor): The computed returns for each transition.
+            advantages (torch.Tensor): The computed advantages for each transition.
+        """
         returns = []
         advantages = []
-        G = last_value
-        A = 0
-        values = self.buffer.values + [last_value]
+        G = last_value # Discounted return, initialized to the last value
+        A = 0 # Generalized Advantage Estimation (GAE)
+        values = self.buffer.values + [last_value] 
 
         # TD error → tells the critic how surprised it should be.
         # Discounted return → tells what really happened → used to train the critic.
@@ -124,12 +158,16 @@ class PPOAgent:
         return returns, advantages
 
     def learn(self):
+        """
+        Update the actor-critic network, making use of the transitions which are in the buffer.
+        """
         states = torch.tensor(np.array(self.buffer.states), dtype=torch.float32).to(self.device)
         actions = torch.tensor(self.buffer.actions, dtype=torch.long).to(self.device)
         old_log_probs = torch.tensor(self.buffer.log_probs, dtype=torch.float32).to(self.device)
 
         returns, advantages = self.compute_returns_and_advantages()
 
+        # Training loop
         for _ in range(self.update_epochs):
             idxs = np.arange(len(states))
             np.random.shuffle(idxs)
@@ -137,8 +175,9 @@ class PPOAgent:
             for start in range(0, len(states), self.batch_size):
                 end = start + self.batch_size
                 batch_idx = idxs[start:end]
-
-                batch_states = states[batch_idx]
+                
+                # Get batch data
+                batch_states = states[batch_idx] # 
                 batch_actions = actions[batch_idx]
                 batch_old_log_probs = old_log_probs[batch_idx]
                 batch_returns = returns[batch_idx]
