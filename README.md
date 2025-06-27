@@ -72,6 +72,25 @@ Implements the Proximal Policy Optimization (PPO) agent.
   - Handles policy and value updates, action sampling, and advantage calculation.
 
 ### 2. **Office**
+- **`delivery_env.py`**  
+Defines the main delivery robot environment for RL training.
+  - Inherits from Gymnasium’s Env class for compatibility with standard RL workflows.
+  - Manages all aspects of the simulation: world layout, robot movement, object placement, reward calculation, and state observation.
+  - Supports multiple configuration options for walls, obstacles, carpets, and ray-based sensors.
+  - Integrates with rendering and raycasting modules for visualization and rich observations.
+
+---
+
+- **`render.py`**  
+Handles rendering and visualization of the environment.  
+  - Uses pygame to draw the environment, robot, and objects.
+
+---
+
+- **`raycasting.py`**  
+Provides mathematical routines for simulating robot sensors.* 
+  - Implements ray-segment intersection logic,  simulating lidar-like sensors.
+  - Used to provide agents with distance-to-obstacle information in their observations.
 
 ### 3. **Experiments**
 
