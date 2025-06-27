@@ -133,17 +133,26 @@ def parse_args(argv=None):
 
 # ---------- Seed Setup ----------
 def set_global_seed(seed):
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    os.environ["PYTHONHASHSEED"] = str(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
+    """
+    Set global random seed for reproducibility across numpy, random, and torch.
+    Args:
+        seed (int): The seed value to set.
+    """
+
+    random.seed(seed) # Set Python random seed
+    np.random.seed(seed) # Set numpy random seed
+    torch.manual_seed(seed) # Set PyTorch CPU seed
+    torch.cuda.manual_seed_all(seed) # Set PyTorch GPU seed
+    os.environ["PYTHONHASHSEED"] = str(seed) # Set environment variable for hash seed
+    torch.backends.cudnn.deterministic = True # Ensure deterministic behavior
+    torch.backends.cudnn.benchmark = False 
 
 
 # ---------- Logging Setup ----------
 class TqdmLoggingHandler(logging.Handler):
+    """
+    Custom logging handler writing log messages to tqdm.
+    """
     def __init__(self, level=logging.NOTSET):
         super().__init__(level)
 
@@ -157,6 +166,14 @@ class TqdmLoggingHandler(logging.Handler):
 
 
 def setup_logger(log_level=logging.INFO, log_file="training.log"):
+    """
+    Setup a logger that writes to both console and file.
+    Args:
+        log_level (int): Logging level (default: logging.INFO).
+        log_file (str): File to write logs to (default: "training.log").
+    Returns:
+        logger (logging.Logger): Configured logger instance.
+    """
     logger = logging.getLogger("trainer")
     logger.setLevel(log_level)
     if not logger.handlers:
@@ -176,21 +193,41 @@ def setup_logger(log_level=logging.INFO, log_file="training.log"):
 # ---------- Hausdorff Distance functions ----------
 # --- RL Metric: Hausdorff Distance ---
 def hausdorff_distance(path_a, path_b):
-    """Compute the symmetric Hausdorff distance between two 2D point lists."""
+    """
+    Compute the symmetric Hausdorff distance between two 2D point lists.
+    
+    Args:
+        path_a (list of tuples): First path as list of (x, y) tuples.
+        path_b (list of tuples): Second path as list of (x, y) tuples.
+    Returns:
+        float: Symmetric Hausdorff distance between the two paths."""
 
     def directed(a, b):
         # for each p in a, find min dist to any q in b, then take max
         dists = []
         for px, py in a:
+            # Find minimum distance from px, py to all on b
             min_d = min((px - qx) ** 2 + (py - qy) ** 2 for qx, qy in b)
             dists.append(min_d)
+        # Return the maximum of these minimum distances
+        # This is the directed Hausdorff distance
+        # Then take the square root to get the actual distance
         return max(dists) ** 0.5 if dists else 0.0
 
     return max(directed(path_a, path_b), directed(path_b, path_a))
 
 
-# Supportive functions and A-star to compute optimal path the environment
+# A-star and support to compute optimal path benchmark the environment
 def build_occupancy_grid(env, cell_size):
+    """
+    Build a grid with obstacles and walls for A* pathfinding.
+
+    Args:
+        env: The environment containing walls and obstacles.
+        cell_size (float): Size of each grid cell in the environment.
+    Returns:
+        np.ndarray: Occupancy grid where 0 = free cell, 1 = blocked cell.
+    """
     w, h = env.width, env.height
     cols = int(w // cell_size)
     rows = int(h // cell_size)
@@ -223,7 +260,16 @@ def build_occupancy_grid(env, cell_size):
 
 
 def astar(grid, start, goal):
-    """A* on a 4-connected grid: returns list of (x, y) cell centers."""
+    """A* on a 4-connected grid: returns list of (x, y) cell centers.
+    Args:
+        grid (np.ndarray): 2D occupancy grid where 0 = free cell, 1 = blocked cell.
+        start (tuple): Starting cell coordinates (x, y).
+        goal (tuple): Goal cell coordinates (x, y).
+    Returns:
+        list: List of (x, y) tuples representing the path from start to goal.
+        Returns an empty list if no path is found or if start/goal are invalid.
+    """
+
     import heapq
 
     rows, cols = grid.shape
@@ -253,15 +299,18 @@ def astar(grid, start, goal):
     def h(a, b):
         return abs(a[0] - b[0]) + abs(a[1] - b[1])
 
-    counter = 0
-    open_set = [(0, start)]
-    came_from = {}
-    g_score = {start: 0}
-    f_score = {start: h(start, goal)}
-    closed_set = set()
+    # A* algorithm initialization
+    counter = 0 # Unique counter for each cell to break ties in priority queue
+    open_set = [(0, start)] # Priority queue for open set, using f-score
+    came_from = {} # To reconstruct the path
+    g_score = {start: 0} # cost from start to current cell
+    f_score = {start: h(start, goal)} # heuristic cost from start to goal
+    closed_set = set() # Set of cells already evaluated
 
+    # Directions for 4-connected grid (up, right, down, left)
     directions = [(0, 1), (1, 0), (0, -1), (-1, 0)]
 
+    # A* loop
     while open_set:
         current_f, current = heapq.heappop(open_set)
 
@@ -270,6 +319,7 @@ def astar(grid, start, goal):
 
         closed_set.add(current)
 
+        # If we reach the goal, reconstruct the path
         if current == goal:
             # Reconstruct path
             path = []
@@ -278,7 +328,8 @@ def astar(grid, start, goal):
                 current = came_from[current]
             path.append(start)
             return path[::-1]
-
+        
+        # Explore neighbours
         for dx, dy in directions:
             neighbor = (current[0] + dx, current[1] + dy)
 
@@ -289,21 +340,24 @@ def astar(grid, start, goal):
             # Check if blocked
             if grid[neighbor[1], neighbor[0]] == 1:
                 continue
-
+            
+            # Calculate tentative g-score
             tentative_g = g_score[current] + 1
 
+            # If neighbor not in g_score or found a better path
             if neighbor not in g_score or tentative_g < g_score[neighbor]:
                 came_from[neighbor] = current
                 g_score[neighbor] = tentative_g
                 f_score[neighbor] = tentative_g + h(neighbor, goal)
-                heapq.heappush(open_set, (f_score[neighbor], neighbor))
+                heapq.heappush(open_set, (f_score[neighbor], neighbor)) # push with f-score
 
     print("A-star failed to find a path")
     return []
 
 
 def compute_optimal_path(env, cell_size):
-    """Compute an A* path (cell centers) from start to first table."""
+    """
+    Compute an A* path (cell centers) from start to first table."""
     grid = build_occupancy_grid(env, cell_size)
 
     sx, sy = env.start_pos
@@ -353,16 +407,26 @@ def compute_optimal_path(env, cell_size):
 
     return real_path
 
+# ---------- Tortuosity function support ----------
+# --- RL Metric: tortuosity ---
 
 def compute_tortuosity(path):
     """
     Compute the tortuosity of a path as total angular change divided by path length.
+    Args:
+        path (list of tuples): List of (x, y) tuples representing the path.
+    Returns:
+        float: Average angle change per unit length of the path.
     """
+
     path = np.array(path)
     if len(path) < 3:  # not enough points to compute angles
         return 0.0
+    
     total_turn = 0.0
     total_length = 0.0
+
+    # Compute angles between consecutive segments
     for i in range(1, len(path) - 1):
         v1 = path[i] - path[i - 1]
         v2 = path[i + 1] - path[i]  # vectors between points
@@ -373,6 +437,9 @@ def compute_tortuosity(path):
         angle = np.arccos(np.clip(np.dot(v1, v2) / (norm1 * norm2), -1.0, 1.0))
         total_turn += abs(angle)  # accumulate total angular change
         total_length += norm1
+
     # Add the last segment length
     total_length += np.linalg.norm(path[-1] - path[-2])
-    return total_turn / total_length if total_length > 0 else 0.0  # return average angle change per unit
+
+    # Return average angle change per unit
+    return total_turn / total_length if total_length > 0 else 0.0  
