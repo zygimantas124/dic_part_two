@@ -22,6 +22,16 @@ The entry point for training or evaluating agents.
     ```sh
     python main.py --algo dqn --max_episodes 1000 --env_name open_office_simple --device cuda
     ```
+
+- **`evaluate.py:`**  
+Script for evaluating trained agents (for both DQN and PPO).
+  - Loads a trained model and runs evaluation episodes.
+  - Runs multiple evaluation episodes, collecting metrics like reward, path optimality (Hausdorff distance), and tortuosity.
+  - Prints detailed statistical summaries, including learning curve area-under-curve.
+  - Example usage:
+    ```sh
+    python evaluate.py --model_path logs/model.pth --n_episodes 10
+    ```
 ## **Key Directories and Their Contents**
 
 ### 1. **Agents**
