@@ -106,3 +106,20 @@ Provides mathematical routines for simulating robot sensors.*
   - Stores summary files and raw results from each experiment.
 
 ### 7. **Util**
+- **`helpers.py`**  
+General helper for argument parsing, logging, and reproducibility.
+  - Provides argument parsing that supports comments and config files.
+  - Sets up loggers and manages random seeds for reproducible experiments.
+
+- **`training.py`**  
+Manages the agent-environment training cycle.
+  - Initializes environments and agents according to parsed parameters.
+  - Manages episodic training, model saving/loading, and evaluation hooks.
+
+- **`significance_analysis.py`**  
+Supports statistical analysis of experimental results.
+
+[Note: running this file might take a long time due to the comperhensive analysis it does, you can see the result of running this file on the report].
+  - Runs multiple repeats of training/evaluation to measure metrics variability.
+  - Computes confidence intervals and statistical summaries for reporting.
+  - Saves results to JSON for later analysis.
