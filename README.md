@@ -9,13 +9,13 @@ This repository provides a complete framework for developing, training, evaluati
 
 ## Project Structure and Module Overview
 
-[General Note on the project: while running  the files make sure that you are not using GPU, and instead all the code runs on CPU. Running the project on a GPU device takes much longer than running it on CPU]
+[General Note on the project: while running the files make sure that you are not using GPU, and instead all the code runs on CPU. Running the project on a GPU device takes much longer than running it on CPU]
 
 ### **Root-Level Scripts**
 - **`main.py:`**  
 The entry point for training or evaluating agents.
 - Provides a unified command-line interface for starting both training and evaluation of RL agents.
-- Parses commad-line arguments for choosing the RL algorithm, environment, hardware, and hyperparameters.
+- Parses command-line arguments for choosing the RL algorithm, environment, hardware, and hyperparameters.
 - Sets up logging and manages experiment life cycle.
 - Calls training or evaluation routines based on user input.
 - Cleans up previous logs, ensuring reproducible runs.
@@ -23,17 +23,17 @@ The entry point for training or evaluating agents.
   - Example usage (For a list of all the arguments that can be passed to the models please check the corresponding file):
     - Training Only:
         ```sh
-        python main.py --algo dqn --max_episodes 1000 --env_name open_office_simple --device cuda
+        python main.py --algo dqn --max_episodes 1000 --env_name open_office_simple --device cpu
         python main.py --algo ppo --gamma 0.99 --max_episodes 1000 --max_episode_steps 4096 --k_epochs 5 --batch_size 512 --eps_clip 0.2 --seed 42 --epsilon_start 1 --epsilon_min 0.1 --epsilon_decay 0.999 --device cpu
         ```
     - Evaluation only (load existing model)
         ```sh
-        python main.py --algo name --evaluate_only --load_model_path logs/my_model.pth --eval_episodes 20 --device cuda
+        python main.py --algo name --evaluate_only --load_model_path logs/my_model.pth --eval_episodes 20 --device cpu
         ```
-    - Train then Evaluate (xomplete pipeline - with and without saving)
+    - Train then Evaluate (complete pipeline - with and without saving)
         ```sh
-        python main.py --algo ppo --max_episodes 80 --evaluate_after_training --eval_episodes 10 --device cuda
-        python main.py --algo ppo --max_episodes 80 --evaluate_after_training --eval_episodes 10 --save_model_path logs/my_model --device cuda
+        python main.py --algo ppo --max_episodes 80 --evaluate_after_training --eval_episodes 10 --device cpu
+        python main.py --algo ppo --max_episodes 80 --evaluate_after_training --eval_episodes 10 --save_model_path logs/my_model --device cpu
         ```
 ---
 
@@ -131,7 +131,7 @@ Manages the agent-environment training cycle.
 - **`significance_analysis.py`**  
 Supports statistical analysis of experimental results.
 
-[Note: running this file might take a long time due to the comperhensive analysis it does, you can see the result of running this file on the report].
+[Note: running this file might take a long time due to the comprehensive analysis it does, you can see the result of running this file on the report].
   - Runs multiple repeats of training/evaluation to measure metrics variability.
   - Computes confidence intervals and statistical summaries for reporting.
   - Saves results to JSON for later analysis.
