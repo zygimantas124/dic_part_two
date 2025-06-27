@@ -126,9 +126,11 @@ def analyze_and_plot(config_name):
 
     reward_plot_file = os.path.join(PLOT_DIR, f"reward_plot_{plot_base}.png")
     success_plot_file = os.path.join(PLOT_DIR, f"success_rate_plot_{plot_base}.png")
+    steps_plot_file = os.path.join(PLOT_DIR, f"steps_plot_{plot_base}.png") 
 
     plot_metric(metrics["rewards"], f"Total Reward - {plot_base}", "Reward", reward_plot_file, smooth=True)
     plot_success_rate(metrics["successes"], success_plot_file)
+    plot_metric(metrics["lengths"], f"Episode Length (Steps) - {plot_base}", "Steps", steps_plot_file, smooth=False)
 
 def main():
     config_files = sorted(glob(os.path.join(CONFIG_DIR, "*.txt")))
